@@ -46,6 +46,7 @@ export default function Recovery() {
           </button>
           <button type="button" className="btn btn-ghost" onClick={logout}>Sair</button>
         </div>
+        {arm && <p className="mt-3 text-sm text-bad">Isto substitui o que está no gist por um livro vazio.</p>}
         {error && <p className="mt-3 text-sm text-bad" role="alert">{error}</p>}
       </div>
     </div>

@@ -12,6 +12,8 @@ Inclui movimentos, contas, categorias, orçamentos, recorrentes, metas de poupan
 
 Usa uma palavra-passe longa. Quem a tiver lê e escreve os dados. Mudar a palavra-passe mais tarde deixa de conseguir abrir o gist antigo: exporta um backup em Definições antes.
 
+O salt da cifra fica no gist, no ficheiro `crypto.json`. Publicar o site outra vez reutiliza esse salt. A sessão fica neste dispositivo até carregares em Sair, mesmo depois de uma publicação nova.
+
 ## No teu computador
 
 ```bash
@@ -35,6 +37,6 @@ No repositório: Settings → Secrets and variables → Actions, cria:
 
 Settings → Pages → Build and deployment → Source: **GitHub Actions**.
 
-Faz push para `main`. A Action corre os testes, cifra o token dentro do site e publica. No telemóvel abre o URL, entra com a mesma palavra-passe e, se quiseres, Adicionar ao ecrã principal.
+Faz push para `main`. A Action publica o site e reutiliza a chave da publicação anterior. No telemóvel, no computador ou noutro browser, a mesma palavra-passe abre os mesmos dados.
 
-A sessão fica no dispositivo até carregares em Sair. Se editares no computador e no telemóvel ao mesmo tempo, a app avisa antes de substituir a versão mais recente.
+Se editares no computador e no telemóvel ao mesmo tempo, a app avisa antes de substituir a versão mais recente.

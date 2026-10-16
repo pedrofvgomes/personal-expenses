@@ -1,4 +1,4 @@
-import type { Session } from './auth.ts'
+import { previousKey, type Session } from './auth.ts'
 import { decryptJson, encrypt, isEnvelope } from './crypto.ts'
 import { defaultData, normalize } from './defaults.ts'
 import type { AppData } from '../types.ts'
@@ -20,6 +20,7 @@ export interface LoadResult {
   remoteUpdatedAt: string | null
   offline: boolean
   dirty: boolean
+  force: boolean
   fatal: string | null
   hadLocal: boolean
 }
@@ -132,6 +133,17 @@ export async function pullIfNewer(session: Session, meta: Meta, local: AppData):
   return { action: 'none' }
 }
 
+async function recoverPrevious(session: Session): Promise<AppData | null> {
+  const prev = await previousKey()
+  if (!prev) return null
+  const asPrev = { ...session, key: prev }
+  const cached = await readCache(prev)
+  const remote = await fetchRemote(asPrev)
+  if (remote.ok && remote.data && cached) return cached.updatedAt > remote.data.updatedAt ? cached : remote.data
+  if (remote.ok && remote.data) return remote.data
+  return cached
+}
+
 export async function loadState(session: Session): Promise<LoadResult> {
   const meta = readMeta()
   const cached = await readCache(session.key)
@@ -144,15 +156,20 @@ export async function loadState(session: Session): Promise<LoadResult> {
     remoteUpdatedAt: null,
     offline: false,
     dirty: false,
+    force: false,
     fatal: null,
     hadLocal: Boolean(cached),
   }
   if (!remote.ok) return { ...empty, offline: remote.offline, fatal: remote.offline ? null : remote.error }
   if (remote.unreadable) {
+    const recovered = await recoverPrevious(session)
+    if (recovered) {
+      return { ...empty, data: recovered, dirty: true, force: true, fatal: null, hadLocal: true, remoteUpdatedAt: remote.updatedAt }
+    }
     return {
       ...empty,
       data: cached ?? defaultData(),
-      fatal: 'Não consegui ler os dados cifrados. Se mudaste a palavra-passe, repõe a anterior, usa a cópia deste dispositivo ou importa um backup.',
+      fatal: 'Não consegui ler os dados cifrados. O ficheiro no gist não foi apagado: foi cifrado com a chave do site anterior. Começar de novo substitui-o por um livro vazio.',
       remoteUpdatedAt: remote.updatedAt,
       hadLocal: Boolean(cached),
     }

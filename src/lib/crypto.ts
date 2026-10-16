@@ -66,9 +66,13 @@ export async function decryptJson<T>(key: CryptoKey, payload: { iv: string; ct: 
   return JSON.parse(new TextDecoder().decode(pt)) as T
 }
 
-export async function buildVault(password: string, secret: { token: string; gistId: string }): Promise<Extract<VaultFile, { v: 1 }>> {
-  const salt = crypto.getRandomValues(new Uint8Array(16))
-  const key = await deriveKey(password, salt, VAULT_ITERATIONS)
+export async function buildVault(
+  password: string,
+  secret: { token: string; gistId: string },
+  salt = crypto.getRandomValues(new Uint8Array(16)),
+  iterations = VAULT_ITERATIONS,
+): Promise<Extract<VaultFile, { v: 1 }>> {
+  const key = await deriveKey(password, salt, iterations)
   const data = await encrypt(key, secret)
-  return { v: 1, iter: VAULT_ITERATIONS, salt: toB64(salt), iv: data.iv, ct: data.ct }
+  return { v: 1, iter: iterations, salt: toB64(salt), iv: data.iv, ct: data.ct }
 }

@@ -116,7 +116,7 @@ export function StoreProvider({ session, onLogout, children }: { session: Sessio
       }
       if (loaded.dirty) {
         dirtyRef.current = true
-        void persistRef.current()
+        void persistRef.current(loaded.force)
       } else setSync(loaded.offline ? 'offline' : 'saved')
     })
     return () => {

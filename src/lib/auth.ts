@@ -7,7 +7,9 @@ export interface Session {
   gistId: string
 }
 
+const SESSION = 'session'
 const KEY = 'key'
+const PREV = 'previous-key'
 
 export async function loadVault(): Promise<VaultFile> {
   try {
@@ -26,9 +28,42 @@ async function openVault(password: string, vault: Extract<VaultFile, { v: 1 }>):
   return { key, token: secret.token, gistId: secret.gistId }
 }
 
+function isSession(value: unknown): value is Session {
+  if (!value || typeof value !== 'object') return false
+  const session = value as Session
+  return Boolean(session.key) && typeof session.token === 'string' && session.token.length > 0 && typeof session.gistId === 'string' && session.gistId.length > 0
+}
+
+async function remember(session: Session) {
+  try {
+    await idbSet(SESSION, session)
+    await idbSet(KEY, session.key)
+  } catch {
+    // IndexedDB may be blocked; the session still works until the tab closes.
+  }
+}
+
+async function stash(key: CryptoKey) {
+  try {
+    if (await idbGet<CryptoKey>(PREV)) return
+    await idbSet(PREV, key)
+  } catch {
+    // ignore
+  }
+}
+
+export async function previousKey(): Promise<CryptoKey | null> {
+  try {
+    return await idbGet<CryptoKey>(PREV)
+  } catch {
+    return null
+  }
+}
+
 export async function unlock(password: string): Promise<Session> {
   const vault = await loadVault()
   if (!isVault(vault)) throw new Error('unconfigured')
+  const prior = await idbGet<CryptoKey>(KEY).catch(() => null)
   let session: Session
   try {
     session = await openVault(password, vault)
@@ -36,15 +71,28 @@ export async function unlock(password: string): Promise<Session> {
     if (error instanceof Error && error.message === 'password') throw error
     throw new Error('password')
   }
-  try {
-    await idbSet(KEY, session.key)
-  } catch {
-    // IndexedDB may be blocked; the session still works until the tab closes.
-  }
+  if (prior) await stash(prior)
+  await remember(session)
   return session
 }
 
 export async function resume(): Promise<Session | null> {
+  try {
+    const saved = await idbGet<Session>(SESSION)
+    if (isSession(saved)) {
+      const vault = await loadVault()
+      if (!isVault(vault)) return saved
+      try {
+        await decryptJson(saved.key, vault)
+        return saved
+      } catch {
+        await stash(saved.key)
+        return null
+      }
+    }
+  } catch {
+    // Fall through to the legacy key.
+  }
   let key: CryptoKey | null = null
   try {
     key = await idbGet<CryptoKey>(KEY)
@@ -57,15 +105,19 @@ export async function resume(): Promise<Session | null> {
   try {
     const secret = await decryptJson<{ token?: string; gistId?: string }>(key, vault)
     if (!secret?.token || !secret.gistId) throw new Error('password')
-    return { key, token: secret.token, gistId: secret.gistId }
+    const session = { key, token: secret.token, gistId: secret.gistId }
+    await remember(session)
+    return session
   } catch {
-    await clearSession()
+    // The new vault salt cannot open this key. It may still open the gist.
+    await stash(key)
     return null
   }
 }
 
 export async function clearSession(): Promise<void> {
   try {
+    await idbDel(SESSION)
     await idbDel(KEY)
   } catch {
     // ignore

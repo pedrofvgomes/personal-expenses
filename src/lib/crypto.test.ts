@@ -12,6 +12,18 @@ describe('crypto', () => {
     await expect(decryptJson(key, { ...env, iv: toB64(crypto.getRandomValues(new Uint8Array(12))) })).rejects.toBeTruthy()
   })
 
+  it('reuses a salt so the same password keeps the same key', async () => {
+    const salt = crypto.getRandomValues(new Uint8Array(16))
+    const secret = { token: 'gist-token', gistId: 'abc' }
+    const first = await buildVault('pw', secret, salt, 1_000)
+    const second = await buildVault('pw', secret, salt, 1_000)
+    expect(first.salt).toBe(toB64(salt))
+    expect(second.salt).toBe(first.salt)
+    const key = await deriveKey('pw', salt, 1_000)
+    await expect(decryptJson(key, first)).resolves.toEqual(secret)
+    await expect(decryptJson(key, second)).resolves.toEqual(secret)
+  })
+
   it('opens a vault only with the password it was built with', async () => {
     const vault = await buildVault('correct horse', { token: 'gist-token', gistId: 'abc' })
     const key = await deriveKey('correct horse', fromB64(vault.salt), vault.iter)
