@@ -13,14 +13,16 @@ export default function Login({ onUnlock }: { onUnlock: (session: Session) => vo
     loadVault().then((vault) => setConfigured(isVault(vault)))
   }, [])
 
-  async function submit(event: FormEvent) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const typed = new FormData(event.currentTarget).get('password')
+    const value = (typeof typed === 'string' ? typed : password).trim()
     setBusy(true)
     setError('')
     try {
-      onUnlock(await unlock(password))
+      onUnlock(await unlock(value))
     } catch (err) {
-      setError(err instanceof Error && err.message === 'unconfigured' ? 'O cofre ainda não está configurado.' : 'Palavra-passe incorreta.')
+      setError(err instanceof Error && err.message === 'unconfigured' ? 'O cofre ainda não está configurado.' : 'Palavra-passe incorreta. Usa exatamente o valor de APP_PASSWORD.')
       setBusy(false)
     }
   }

@@ -105,6 +105,7 @@ function normalizeLoan(loan: Loan): Loan {
     initialEuribor: num(loan.initialEuribor),
     fixedPeriodMonths: num(loan.fixedPeriodMonths),
     lifeInsurance: num(loan.lifeInsurance),
+    lifeRate: num(loan.lifeRate),
     homeInsurance: num(loan.homeInsurance),
     graceMonths: num(loan.graceMonths),
     euriborTenor,

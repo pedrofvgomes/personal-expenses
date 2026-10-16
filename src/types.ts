@@ -100,6 +100,7 @@ export interface Loan {
   initialEuribor: number
   fixedPeriodMonths: number
   lifeInsurance: number
+  lifeRate: number
   homeInsurance: number
   graceMonths: number
   revisions: RateRevision[]

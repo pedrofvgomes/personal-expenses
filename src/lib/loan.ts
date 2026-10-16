@@ -97,7 +97,8 @@ export function buildSchedule(loan: Loan, extra?: EarlyRepaymentInput): Schedule
   let appliedBalanceBefore = 0
   let extraDone = false
   let deferTerm = false
-  const insurance = round2((loan.lifeInsurance || 0) + (loan.homeInsurance || 0))
+  const fixedInsurance = round2((loan.lifeInsurance || 0) + (loan.homeInsurance || 0))
+  const lifeRate = Math.max(0, loan.lifeRate || 0) / 100 / 12
   const drawdowns = [...(loan.drawdowns ?? [])].sort((a, b) => a.date.localeCompare(b.date))
 
   const futureDraw = (date: string) => loan.kind === 'obras' && drawdowns.some((d) => d.date > date)
@@ -146,6 +147,7 @@ export function buildSchedule(loan: Loan, extra?: EarlyRepaymentInput): Schedule
 
     const r = Math.max(0, annual) / 100 / 12
     const interest = round2(balance * r)
+    const insurance = round2(fixedInsurance + balance * lifeRate)
     let capital = 0
     let instalment = interest
     if (!inGrace) {
@@ -214,6 +216,23 @@ export function simulateEarlyRepayment(loan: Loan, input: EarlyRepaymentInput): 
     instalmentsBefore: before.rows.length,
     instalmentsAfter: after.rows.length,
   }
+}
+
+export function propertyValue(loan: Loan): number {
+  if (loan.kind !== 'habitacao') return 0
+  return round2((loan.principal || 0) + (loan.downPayment || 0))
+}
+
+export function equityAt(loan: Loan, on: string): number {
+  const value = propertyValue(loan)
+  if (value <= 0) return 0
+  return round2(value - outstandingAt(loan, on))
+}
+
+export function homeEquity(loans: Loan[], on: string): { value: number; debt: number; equity: number } {
+  const value = round2(loans.reduce((s, loan) => s + propertyValue(loan), 0))
+  const debt = round2(loans.reduce((s, loan) => s + outstandingAt(loan, on), 0))
+  return { value, debt, equity: round2(value - debt) }
 }
 
 export function outstandingAt(loan: Loan, on: string): number {

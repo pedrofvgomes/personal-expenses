@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { paymentDate } from './dates.ts'
-import { annualRateAt, frenchPayment, outstandingAt, schedule, simulateEarlyRepayment } from './loan.ts'
+import { annualRateAt, equityAt, frenchPayment, homeEquity, outstandingAt, schedule, simulateEarlyRepayment } from './loan.ts'
 import { round2 } from './money.ts'
 import type { Loan } from '../types.ts'
 
@@ -19,6 +19,7 @@ function loan(partial: Partial<Loan> & Pick<Loan, 'principal' | 'termMonths' | '
     initialEuribor: 0,
     fixedPeriodMonths: 0,
     lifeInsurance: 0,
+    lifeRate: 0,
     homeInsurance: 0,
     graceMonths: 0,
     revisions: [],
@@ -53,10 +54,20 @@ describe('french schedule', () => {
     expect(new Set(regular).size).toBe(1)
   })
 
-  it('keeps the down payment out of the balance', () => {
+  it('keeps the down payment out of the balance and counts it as equity', () => {
     const item = loan({ principal: 100_000, downPayment: 25_000, termMonths: 120, rateKind: 'fixed', annualRate: 6 })
     expect(outstandingAt(item, '2026-01-01')).toBe(100_000)
+    expect(equityAt(item, '2026-01-01')).toBe(25_000)
     expect(round2(schedule(item).reduce((s, r) => s + r.capital, 0))).toBe(100_000)
+    const obras = loan({
+      kind: 'obras',
+      principal: 20_000,
+      termMonths: 12,
+      rateKind: 'fixed',
+      graceMonths: 12,
+      drawdowns: [{ id: 'd', date: '2026-01-01', amount: 10_000 }],
+    })
+    expect(homeEquity([item, obras], '2026-01-01')).toEqual({ value: 125_000, debt: 110_000, equity: 15_000 })
   })
 
   it('splits a zero-interest loan into equal capital', () => {
@@ -90,6 +101,23 @@ describe('french schedule', () => {
     const rows = schedule(loan({ principal: 1000, termMonths: 2, rateKind: 'fixed', annualRate: 0, lifeInsurance: 10, homeInsurance: 5 }))
     expect(rows[0].insurance).toBe(15)
     expect(rows[0].total).toBe(round2(rows[0].instalment + 15))
+  })
+
+  it('reduces life insurance as the outstanding capital falls', () => {
+    const rows = schedule(loan({
+      principal: 115_000,
+      termMonths: 480,
+      rateKind: 'fixed',
+      annualRate: 3.9,
+      homeInsurance: 16.95,
+      lifeRate: 0.12,
+    }))
+    expect(rows[0].interest).toBe(373.75)
+    expect(rows[0].insurance).toBe(28.45)
+    expect(rows[0].total).toBe(round2(rows[0].instalment + 28.45))
+    expect(rows[1].insurance).toBe(28.44)
+    expect(rows[2].insurance).toBe(28.43)
+    expect(rows[3].insurance).toBe(28.42)
   })
 })
 

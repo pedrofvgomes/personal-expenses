@@ -5,7 +5,7 @@ import { LoanForm } from '../components/LoanForm.tsx'
 import { Field, Modal, Segmented } from '../components/ui.tsx'
 import { formatDate, shiftMonth, todayISO } from '../lib/dates.ts'
 import { uid } from '../lib/id.ts'
-import { interestTotals, nextRevisionDate, outstandingAt, overdueInstalments, schedule, simulateEarlyRepayment, type Instalment } from '../lib/loan.ts'
+import { equityAt, interestTotals, nextRevisionDate, outstandingAt, overdueInstalments, propertyValue, schedule, simulateEarlyRepayment, type Instalment } from '../lib/loan.ts'
 import { formatEUR, formatPct, parseAmount, parseRate, round2 } from '../lib/money.ts'
 import { useStore } from '../store.tsx'
 import type { Loan } from '../types.ts'
@@ -65,10 +65,12 @@ function LoanView({
   onSave: (loan: Loan) => void
   onDelete: () => void
 }) {
-  const { mutate } = useStore()
+  const { data, mutate } = useStore()
   const today = todayISO()
   const rows = useMemo(() => schedule(loan), [loan])
   const owed = outstandingAt(loan, today)
+  const value = propertyValue(loan)
+  const owned = equityAt(loan, today)
   const interest = interestTotals(loan, today)
   const late = overdueInstalments(loan, today)
   const revision = nextRevisionDate(loan)
@@ -131,6 +133,15 @@ function LoanView({
         <Stat label="Prestação" value={current ? formatEUR(current.total) : '—'} hint={current ? `TAN ${formatPct(current.rate)}` : undefined} />
         <Stat label="Juros pagos" value={formatEUR(interest.paid)} />
         <Stat label="Juros a pagar" value={formatEUR(interest.left)} />
+        {value > 0 && (
+          <Stat
+            label="Capital próprio"
+            value={formatEUR(owned)}
+            hint={data.loans.some((l) => l.kind === 'obras')
+              ? `${Math.round((owned / value) * 100)}% deste crédito. O crédito obras entra no total da lista.`
+              : `${Math.round((owned / value) * 100)}% de ${formatEUR(value)}`}
+          />
+        )}
       </div>
 
       {late.length > 0 && (
@@ -194,6 +205,7 @@ function LoanView({
                 <span className="hidden md:block">{formatEUR(row.interest)}</span>
                 <span className="hidden md:block">{formatEUR(row.capital)}</span>
                 <span className="hidden md:block">{formatEUR(row.insurance)}</span>
+                <span className="col-span-2 text-muted md:hidden">Seguros {formatEUR(row.insurance)}</span>
                 <span className="amount font-medium">{formatEUR(row.total)}</span>
                 <span className="amount text-muted">{formatEUR(row.balance)}</span>
                 <span className="col-span-2 md:col-span-1 md:text-right">

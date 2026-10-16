@@ -4,7 +4,7 @@ import { LoanForm } from '../components/LoanForm.tsx'
 import { Empty, Meter, Modal, PageHeader } from '../components/ui.tsx'
 import { todayISO, formatDate } from '../lib/dates.ts'
 import { formatEUR, formatPct } from '../lib/money.ts'
-import { nextInstalment, nextRevisionDate, outstandingAt, overdueInstalments, schedule } from '../lib/loan.ts'
+import { homeEquity, nextInstalment, nextRevisionDate, outstandingAt, overdueInstalments, schedule } from '../lib/loan.ts'
 import { useStore } from '../store.tsx'
 import type { Loan } from '../types.ts'
 
@@ -12,6 +12,7 @@ export default function Loans() {
   const { data, mutate } = useStore()
   const [open, setOpen] = useState(false)
   const today = todayISO()
+  const equity = homeEquity(data.loans, today)
 
   function save(loan: Loan) {
     mutate((d) => d.loans.push(loan))
@@ -24,6 +25,16 @@ export default function Loans() {
       {data.loans.length === 0 ? (
         <Empty title="Sem créditos" body="Regista o crédito habitação ou o crédito obras para veres a prestação, a dívida e uma amortização antecipada." action={<button type="button" className="btn btn-primary" onClick={() => setOpen(true)}>Adicionar</button>} />
       ) : (
+        <>
+        {equity.value > 0 && (
+          <section className="card mb-4 p-4">
+            <p className="text-sm text-muted">Capital próprio</p>
+            <p className="amount mt-1 font-serif text-3xl">{formatEUR(equity.equity)}</p>
+            <p className="text-sm text-muted">{Math.round((equity.equity / equity.value) * 100)}% de {formatEUR(equity.value)}</p>
+            <div className="mt-3"><Meter value={Math.max(0, equity.equity)} max={equity.value} /></div>
+            <p className="mt-3 text-sm text-muted">Dívida {formatEUR(equity.debt)}{data.loans.some((l) => l.kind === 'obras') ? ' · habitação e obras' : ''}</p>
+          </section>
+        )}
         <ul className="grid gap-3">
           {data.loans.map((loan) => {
             const owed = outstandingAt(loan, today)
@@ -58,6 +69,7 @@ export default function Loans() {
             )
           })}
         </ul>
+        </>
       )}
       {open && (
         <Modal title="Novo crédito" onClose={() => setOpen(false)}>

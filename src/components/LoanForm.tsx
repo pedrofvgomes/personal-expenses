@@ -25,6 +25,7 @@ export function LoanForm({ initial, onCancel, onSave }: { initial?: Loan; onCanc
   const [tenor, setTenor] = useState<EuriborTenor>(initial?.euriborTenor ?? 12)
   const [fixedPeriod, setFixedPeriod] = useState(initial ? String(initial.fixedPeriodMonths) : '60')
   const [life, setLife] = useState(initial ? money(initial.lifeInsurance) : '')
+  const [lifeRate, setLifeRate] = useState(initial?.lifeRate ? formatRate(initial.lifeRate) : '')
   const [home, setHome] = useState(initial ? money(initial.homeInsurance) : '')
   const [grace, setGrace] = useState(initial ? String(initial.graceMonths) : '0')
   const [error, setError] = useState('')
@@ -54,7 +55,9 @@ export function LoanForm({ initial, onCancel, onSave }: { initial?: Loan; onCanc
     const tan = parseRate(annualRate || '0')
     const spreadN = parseRate(spread || '0')
     const euribor = parseRate(initialEuribor || '0')
-    if (tan === null || spreadN === null || euribor === null) return setError('Uma das taxas não é válida.')
+    const vidaRate = parseRate(lifeRate || '0')
+    if (tan === null || spreadN === null || euribor === null || vidaRate === null) return setError('Uma das taxas não é válida.')
+    if (vidaRate < 0) return setError('A taxa do seguro de vida não pode ser negativa.')
     if (rateKind !== 'variable' && tan < 0) return setError('A TAN não pode ser negativa.')
     if (rateKind === 'mixed' && (!Number.isInteger(fixedMonths) || fixedMonths <= 0 || fixedMonths >= term)) {
       return setError('O período de taxa fixa tem de ser menor que o prazo.')
@@ -76,6 +79,7 @@ export function LoanForm({ initial, onCancel, onSave }: { initial?: Loan; onCanc
       initialEuribor: euribor,
       fixedPeriodMonths: rateKind === 'mixed' ? fixedMonths : 0,
       lifeInsurance: parseAmount(life || '0') ?? 0,
+      lifeRate: vidaRate,
       homeInsurance: parseAmount(home || '0') ?? 0,
       graceMonths,
       revisions: initial?.revisions ?? [],
@@ -173,11 +177,14 @@ export function LoanForm({ initial, onCancel, onSave }: { initial?: Loan; onCanc
           <input className="field" inputMode="numeric" value={fixedPeriod} onChange={(e) => setFixedPeriod(e.target.value)} />
         </Field>
       )}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Field label="Seguro de vida / mês">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Seguro de vida (%/ano)" hint="Sobre o capital em dívida. No mapa desce à medida que amortizas.">
+          <input className="field" inputMode="decimal" value={lifeRate} onChange={(e) => setLifeRate(e.target.value)} placeholder="0,12" />
+        </Field>
+        <Field label="Seguro de vida (€/mês)" hint="Só se for um valor fixo, não uma percentagem.">
           <input className="field" inputMode="decimal" value={life} onChange={(e) => setLife(e.target.value)} placeholder="0,00" />
         </Field>
-        <Field label="Multirriscos / mês">
+        <Field label="Multirriscos (€/mês)">
           <input className="field" inputMode="decimal" value={home} onChange={(e) => setHome(e.target.value)} placeholder="0,00" />
         </Field>
         <Field label="Carência (meses)" hint="Só juros, antes da amortização.">
