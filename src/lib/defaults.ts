@@ -1,4 +1,5 @@
-import type { Account, AppData, Category, EuriborTenor, Loan } from '../types.ts'
+import { dateInMonth, thisMonth } from './dates.ts'
+import type { Account, AppData, Category, EuriborTenor, Loan, Recurring, RecurUnit } from '../types.ts'
 
 const expense = (id: string, name: string, emoji: string, color: string): Category => ({ id, name, emoji, color, kind: 'expense' })
 
@@ -58,9 +59,35 @@ export function normalize(input: Partial<AppData> | null | undefined): AppData {
     accounts: accounts.map((a) => ({ ...a, openingBalance: num(a.openingBalance) })),
     transactions,
     budgets: Array.isArray(input.budgets) ? input.budgets : [],
-    recurring: (Array.isArray(input.recurring) ? input.recurring : []).map((r) => ({ ...r, lastGenerated: r.lastGenerated ?? null, active: r.active !== false })),
+    recurring: (Array.isArray(input.recurring) ? input.recurring : []).map((r) => normalizeRecurring(r)),
     goals: (Array.isArray(input.goals) ? input.goals : []).map((g) => ({ ...g, saved: num(g.saved), target: num(g.target) })),
     loans,
+  }
+}
+
+const UNITS: RecurUnit[] = ['day', 'week', 'month', 'year']
+
+function normalizeRecurring(raw: Recurring & { day?: number; lastGenerated?: string | null }): Recurring {
+  const unit = UNITS.includes(raw.unit) ? raw.unit : 'month'
+  const every = Number.isInteger(raw.every) && raw.every >= 1 ? raw.every : 1
+  let start = typeof raw.start === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(raw.start) ? raw.start : ''
+  if (!start) {
+    const day = Number.isInteger(raw.day) ? Math.min(31, Math.max(1, raw.day as number)) : 1
+    const stamp = typeof raw.lastGenerated === 'string' ? raw.lastGenerated : ''
+    const ym = /^\d{4}-\d{2}/.test(stamp) ? stamp.slice(0, 7) : thisMonth()
+    start = dateInMonth(ym, day)
+  }
+  return {
+    id: raw.id,
+    amount: num(raw.amount),
+    type: raw.type === 'income' ? 'income' : 'expense',
+    categoryId: raw.categoryId,
+    accountId: raw.accountId,
+    note: raw.note ?? '',
+    start,
+    every,
+    unit,
+    active: raw.active !== false,
   }
 }
 
@@ -70,6 +97,7 @@ function normalizeLoan(loan: Loan): Loan {
   return {
     ...loan,
     principal: num(loan.principal),
+    downPayment: num(loan.downPayment),
     termMonths: num(loan.termMonths),
     paymentDay: num(loan.paymentDay, 1),
     annualRate: num(loan.annualRate),

@@ -122,6 +122,9 @@ function LoanView({
         <button type="button" className="btn" onClick={() => setEditing(true)}>Editar</button>
       </div>
       <p className="mt-2 max-w-xl text-sm text-muted">Prestação constante. Quando a taxa muda, é recalculada para o prazo que falta.</p>
+      {loan.downPayment > 0 && (
+        <p className="mt-1 text-sm text-muted">Entrada {formatEUR(loan.downPayment)} · imóvel {formatEUR(round2(loan.principal + loan.downPayment))}</p>
+      )}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Stat label="Em dívida" value={formatEUR(owed)} />

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Field, Segmented } from './ui.tsx'
 import { uid } from '../lib/id.ts'
 import { todayISO } from '../lib/dates.ts'
-import { formatNumber, formatRate, parseAmount, parseRate } from '../lib/money.ts'
+import { formatEUR, formatNumber, formatRate, parseAmount, parseRate } from '../lib/money.ts'
 import type { EuriborTenor, Loan, LoanKind, RateKind } from '../types.ts'
 
 function money(n: number): string {
@@ -14,6 +14,7 @@ export function LoanForm({ initial, onCancel, onSave }: { initial?: Loan; onCanc
   const [name, setName] = useState(initial?.name ?? '')
   const [bank, setBank] = useState(initial?.bank ?? '')
   const [principal, setPrincipal] = useState(initial ? money(initial.principal) : '')
+  const [downPayment, setDownPayment] = useState(initial?.downPayment ? money(initial.downPayment) : '')
   const [termMonths, setTermMonths] = useState(initial ? String(initial.termMonths) : kind === 'habitacao' ? '360' : '60')
   const [startDate, setStartDate] = useState(initial?.startDate ?? todayISO())
   const [paymentDay, setPaymentDay] = useState(String(initial?.paymentDay ?? 1))
@@ -31,15 +32,22 @@ export function LoanForm({ initial, onCancel, onSave }: { initial?: Loan; onCanc
   const months = Number(termMonths)
   const years = Number.isFinite(months) ? Math.floor(months / 12) : 0
   const rem = Number.isFinite(months) ? months % 12 : 0
+  const financed = parseAmount(principal)
+  const entradaPreview = parseAmount(downPayment || '0')
+  const entradaHint = financed && entradaPreview
+    ? `Imóvel ${formatEUR(financed + entradaPreview)}. Não entra na prestação.`
+    : 'O que pagaste à cabeça. Não entra na prestação.'
 
   function save() {
     const capital = parseAmount(principal)
+    const entrada = parseAmount(downPayment || '0')
     const term = Number(termMonths)
     const day = Number(paymentDay)
     const graceMonths = Number(grace || 0)
     const fixedMonths = Number(fixedPeriod || 0)
     if (!name.trim()) return setError('Dá um nome ao crédito.')
-    if (!capital || capital <= 0) return setError('Indica o capital.')
+    if (!capital || capital <= 0) return setError('Indica o capital financiado.')
+    if (entrada === null || entrada < 0) return setError('A entrada não é válida.')
     if (!Number.isInteger(term) || term <= 0) return setError('O prazo tem de ser um número de meses.')
     if (!Number.isInteger(day) || day < 1 || day > 31) return setError('O dia de pagamento fica entre 1 e 31.')
     if (!Number.isInteger(graceMonths) || graceMonths < 0 || graceMonths >= term) return setError('A carência tem de ser menor que o prazo.')
@@ -57,6 +65,7 @@ export function LoanForm({ initial, onCancel, onSave }: { initial?: Loan; onCanc
       name: name.trim(),
       bank: bank.trim(),
       principal: capital,
+      downPayment: kind === 'habitacao' ? entrada : 0,
       termMonths: term,
       startDate,
       paymentDay: day,
@@ -100,13 +109,24 @@ export function LoanForm({ initial, onCancel, onSave }: { initial?: Loan; onCanc
         </Field>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
-        <Field label={kind === 'obras' ? 'Capital aprovado' : 'Capital'} hint="Em euros">
+        <Field label={kind === 'obras' ? 'Capital aprovado' : 'Montante financiado'} hint={kind === 'habitacao' ? 'O que o banco emprestou. A prestação usa só este valor.' : 'Em euros'}>
           <input className="field" inputMode="decimal" value={principal} onChange={(e) => setPrincipal(e.target.value)} placeholder="150.000,00" />
         </Field>
+        {kind === 'habitacao' ? (
+          <Field label="Entrada" hint={entradaHint}>
+            <input className="field" inputMode="decimal" value={downPayment} onChange={(e) => setDownPayment(e.target.value)} placeholder="0,00" />
+          </Field>
+        ) : (
+          <Field label="Prazo (meses)" hint={years ? `${years} anos${rem ? ` e ${rem} meses` : ''}` : undefined}>
+            <input className="field" inputMode="numeric" value={termMonths} onChange={(e) => setTermMonths(e.target.value)} />
+          </Field>
+        )}
+      </div>
+      {kind === 'habitacao' && (
         <Field label="Prazo (meses)" hint={years ? `${years} anos${rem ? ` e ${rem} meses` : ''}` : undefined}>
           <input className="field" inputMode="numeric" value={termMonths} onChange={(e) => setTermMonths(e.target.value)} />
         </Field>
-      </div>
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Início">
           <input className="field" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} required />

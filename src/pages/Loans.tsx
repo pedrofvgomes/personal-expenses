@@ -44,7 +44,7 @@ export default function Loans() {
                     {rate !== undefined && <p className="text-sm text-muted">TAN {formatPct(rate)}</p>}
                   </div>
                   <p className="amount mt-3 font-serif text-3xl">{formatEUR(owed)}</p>
-                  <p className="text-sm text-muted">em dívida</p>
+                  <p className="text-sm text-muted">em dívida{loan.downPayment > 0 ? ` · entrada ${formatEUR(loan.downPayment)}` : ''}</p>
                   <div className="mt-3"><Meter value={paid} max={paid + owed || 1} /></div>
                   <p className="mt-3 text-sm">
                     {next ? `Próxima ${formatDate(next.date)} · ${formatEUR(next.total)}` : 'Sem prestações futuras'}

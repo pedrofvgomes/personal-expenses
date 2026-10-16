@@ -40,6 +40,8 @@ export interface Budget {
   limit: number
 }
 
+export type RecurUnit = 'day' | 'week' | 'month' | 'year'
+
 export interface Recurring {
   id: string
   amount: number
@@ -47,9 +49,10 @@ export interface Recurring {
   categoryId: string
   accountId: string
   note: string
-  day: number
+  start: string
+  every: number
+  unit: RecurUnit
   active: boolean
-  lastGenerated: string | null
 }
 
 export interface Goal {
@@ -86,6 +89,7 @@ export interface Loan {
   name: string
   bank: string
   principal: number
+  downPayment: number
   termMonths: number
   startDate: string
   paymentDay: number

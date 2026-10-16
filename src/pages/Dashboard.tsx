@@ -3,12 +3,11 @@ import { Link } from 'react-router-dom'
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 import { useShell } from '../components/Layout.tsx'
 import { Empty, Meter, MonthSwitch, PageHeader } from '../components/ui.tsx'
-import { dateInMonth, formatDate, formatMonthName, thisMonth } from '../lib/dates.ts'
+import { formatDate, formatMonthName, thisMonth } from '../lib/dates.ts'
 import { formatEUR } from '../lib/money.ts'
 import { nextInstalment } from '../lib/loan.ts'
-import { accountBalance, categorySpent, dueMonths, monthCashflow, monthlyTrend, nextRecurringMonth, spentByCategory } from '../lib/selectors.ts'
+import { accountBalance, categorySpent, dueDates, materializeRecurring, monthCashflow, monthlyTrend, nextOccurrence, scheduleLabel, spentByCategory } from '../lib/selectors.ts'
 import { useStore } from '../store.tsx'
-import { uid } from '../lib/id.ts'
 
 const tip = { background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, color: 'var(--ink)' }
 
@@ -27,7 +26,7 @@ export default function Dashboard() {
     })
     .filter((b) => b !== null)
     .sort((a, b) => b.spent / b.limit - a.spent / a.limit)
-  const pending = data.recurring.filter((r) => dueMonths(r, data).length > 0)
+  const pending = data.recurring.filter((r) => dueDates(r, data).length > 0)
   const loans = data.loans
     .map((loan) => ({ loan, next: nextInstalment(loan, new Date().toISOString().slice(0, 10)) }))
     .filter((row) => row.next)
@@ -35,24 +34,7 @@ export default function Dashboard() {
 
   function generateAll() {
     mutate((d) => {
-      for (const rec of d.recurring) {
-        const months = dueMonths(rec, d)
-        for (const ym of months) {
-          if (d.transactions.some((t) => t.recurringId === rec.id && t.date.startsWith(ym))) continue
-          d.transactions.push({
-            id: uid(),
-            type: rec.type,
-            amount: rec.amount,
-            categoryId: rec.categoryId,
-            accountId: rec.accountId,
-            date: dateInMonth(ym, rec.day),
-            note: rec.note,
-            tags: ['recorrente'],
-            recurringId: rec.id,
-          })
-        }
-        if (months.length) rec.lastGenerated = months[months.length - 1]
-      }
+      for (const rec of d.recurring) materializeRecurring(d, rec)
     })
   }
 
@@ -156,12 +138,12 @@ export default function Dashboard() {
           ) : (
             <ul className="mt-3 divide-y divide-line">
               {data.recurring.filter((r) => r.active).slice(0, 5).map((r) => {
-                const due = dueMonths(r, data)
+                const due = dueDates(r, data)
                 const cat = data.categories.find((c) => c.id === r.categoryId)
                 return (
                   <li key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
-                    <span className="min-w-0 truncate">{cat?.emoji} {r.note || cat?.name} · dia {r.day}</span>
-                    <span className="shrink-0 text-muted">{due.length ? 'por confirmar' : formatDate(dateInMonth(nextRecurringMonth(r, data), r.day))}</span>
+                    <span className="min-w-0 truncate">{cat?.emoji} {r.note || cat?.name} · {scheduleLabel(r)}</span>
+                    <span className="shrink-0 text-muted">{due.length ? 'por confirmar' : formatDate(nextOccurrence(r, data))}</span>
                   </li>
                 )
               })}

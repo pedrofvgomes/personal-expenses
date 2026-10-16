@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { paymentDate } from './dates.ts'
-import { annualRateAt, frenchPayment, schedule, simulateEarlyRepayment } from './loan.ts'
+import { annualRateAt, frenchPayment, outstandingAt, schedule, simulateEarlyRepayment } from './loan.ts'
 import { round2 } from './money.ts'
 import type { Loan } from '../types.ts'
 
@@ -10,6 +10,7 @@ function loan(partial: Partial<Loan> & Pick<Loan, 'principal' | 'termMonths' | '
     kind: 'habitacao',
     name: 'Teste',
     bank: '',
+    downPayment: 0,
     startDate: '2026-01-10',
     paymentDay: 10,
     annualRate: 0,
@@ -50,6 +51,12 @@ describe('french schedule', () => {
     expect(round2(rows.reduce((s, r) => s + r.capital, 0))).toBe(100_000)
     const regular = rows.slice(0, -1).map((r) => r.instalment)
     expect(new Set(regular).size).toBe(1)
+  })
+
+  it('keeps the down payment out of the balance', () => {
+    const item = loan({ principal: 100_000, downPayment: 25_000, termMonths: 120, rateKind: 'fixed', annualRate: 6 })
+    expect(outstandingAt(item, '2026-01-01')).toBe(100_000)
+    expect(round2(schedule(item).reduce((s, r) => s + r.capital, 0))).toBe(100_000)
   })
 
   it('splits a zero-interest loan into equal capital', () => {

@@ -64,6 +64,17 @@ export function clampDay(year: number, monthIndex: number, day: number): string 
   return `${year}-${String(monthIndex + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
 }
 
+export function addDaysISO(iso: string, days: number): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  return toISODate(new Date(y, m - 1, d + days))
+}
+
+export function diffDays(a: string, b: string): number {
+  const [ay, am, ad] = a.split('-').map(Number)
+  const [by, bm, bd] = b.split('-').map(Number)
+  return Math.round((Date.UTC(by, bm - 1, bd) - Date.UTC(ay, am - 1, ad)) / 86400000)
+}
+
 export function addMonthsISO(iso: string, months: number): string {
   const [y, m, d] = iso.split('-').map(Number)
   const total = m - 1 + months
