@@ -64,7 +64,7 @@ describe('french schedule', () => {
       graceMonths: 12,
       drawdowns: [{ id: 'd', date: '2026-01-01', amount: 10_000 }],
     })
-    expect(homeEquity([item, obras], '2026-01-01')).toEqual({ value: 125_000, debt: 110_000, equity: 15_000 })
+    expect(homeEquity([item, obras], '2026-01-01')).toEqual({ value: 135_000, debt: 110_000, equity: 25_000 })
   })
 
   it('splits a zero-interest loan into equal capital', () => {
@@ -121,6 +121,40 @@ describe('crédito obras', () => {
     expect(rows[2].phase).toBe('amort')
     expect(rows[rows.length - 1].balance).toBe(0)
     expect(round2(rows.reduce((s, r) => s + r.capital, 0))).toBe(5000)
+  })
+
+  it('does not reduce equity when a tranche is released', () => {
+    const house = loan({ principal: 100_000, downPayment: 25_000, termMonths: 120, rateKind: 'fixed', annualRate: 6 })
+    const obras = loan({
+      kind: 'obras',
+      principal: 90_000,
+      termMonths: 120,
+      graceMonths: 24,
+      rateKind: 'fixed',
+      annualRate: 0,
+      drawdowns: [
+        { id: 'a', date: '2026-01-01', amount: 10_000 },
+        { id: 'b', date: '2026-01-20', amount: 5_000 },
+      ],
+    })
+    const before = homeEquity([house], '2026-01-25')
+    const after = homeEquity([house, obras], '2026-01-25')
+    expect(after.value).toBe(before.value + 15_000)
+    expect(after.debt).toBe(round2(before.debt + 15_000))
+    expect(after.equity).toBe(before.equity)
+    expect(homeEquity([obras], '2026-01-15')).toEqual({ value: 10_000, debt: 10_000, equity: 0 })
+  })
+
+  it('counts repaid obras capital as equity', () => {
+    const obras = loan({
+      kind: 'obras',
+      principal: 12_000,
+      termMonths: 12,
+      rateKind: 'fixed',
+      annualRate: 0,
+      drawdowns: [{ id: 'a', date: '2026-01-01', amount: 12_000 }],
+    })
+    expect(homeEquity([obras], '2026-01-10')).toEqual({ value: 12_000, debt: 11_000, equity: 1_000 })
   })
 })
 

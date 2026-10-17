@@ -69,7 +69,7 @@ function LoanView({
   const today = todayISO()
   const rows = useMemo(() => schedule(loan), [loan])
   const owed = outstandingAt(loan, today)
-  const value = propertyValue(loan)
+  const value = propertyValue(loan, today)
   const owned = equityAt(loan, today)
   const interest = interestTotals(loan, today)
   const late = overdueInstalments(loan, today)

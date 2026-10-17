@@ -213,19 +213,21 @@ export function simulateEarlyRepayment(loan: Loan, input: EarlyRepaymentInput): 
   }
 }
 
-export function propertyValue(loan: Loan): number {
-  if (loan.kind !== 'habitacao') return 0
+function drawnBy(loan: Loan, on: string): number {
+  return round2((loan.drawdowns ?? []).filter((d) => d.date <= on).reduce((s, d) => s + d.amount, 0))
+}
+
+export function propertyValue(loan: Loan, on: string): number {
+  if (loan.kind === 'obras') return drawnBy(loan, on)
   return round2((loan.principal || 0) + (loan.downPayment || 0))
 }
 
 export function equityAt(loan: Loan, on: string): number {
-  const value = propertyValue(loan)
-  if (value <= 0) return 0
-  return round2(value - outstandingAt(loan, on))
+  return round2(propertyValue(loan, on) - outstandingAt(loan, on))
 }
 
 export function homeEquity(loans: Loan[], on: string): { value: number; debt: number; equity: number } {
-  const value = round2(loans.reduce((s, loan) => s + propertyValue(loan), 0))
+  const value = round2(loans.reduce((s, loan) => s + propertyValue(loan, on), 0))
   const debt = round2(loans.reduce((s, loan) => s + outstandingAt(loan, on), 0))
   return { value, debt, equity: round2(value - debt) }
 }
@@ -237,8 +239,12 @@ export function outstandingAt(loan: Loan, on: string): number {
     if (row.date <= on) last = row
     else break
   }
+  if (loan.kind === 'obras') {
+    const after = last?.date ?? ''
+    const extra = (loan.drawdowns ?? []).filter((d) => d.date > after && d.date <= on).reduce((s, d) => s + d.amount, 0)
+    return round2((last?.balance ?? 0) + extra)
+  }
   if (last) return last.balance
-  if (loan.kind === 'obras') return round2((loan.drawdowns ?? []).filter((d) => d.date <= on).reduce((s, d) => s + d.amount, 0))
   return round2(loan.principal || 0)
 }
 
