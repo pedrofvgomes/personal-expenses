@@ -105,6 +105,11 @@ export interface Loan {
   payments: LoanPayment[]
 }
 
+export interface PortfolioPoint {
+  date: string
+  total: number
+}
+
 export interface AppData {
   version: 1
   updatedAt: string
@@ -115,4 +120,5 @@ export interface AppData {
   recurring: Recurring[]
   goals: Goal[]
   loans: Loan[]
+  portfolio: PortfolioPoint[]
 }

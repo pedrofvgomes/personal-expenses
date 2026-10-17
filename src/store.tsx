@@ -33,6 +33,7 @@ const blank: AppData = {
   recurring: [],
   goals: [],
   loans: [],
+  portfolio: [],
 }
 
 export function StoreProvider({ session, onLogout, children }: { session: Session; onLogout: () => void; children: ReactNode }) {

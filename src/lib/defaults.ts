@@ -1,5 +1,5 @@
 import { dateInMonth, thisMonth } from './dates.ts'
-import type { Account, AppData, Category, EuriborTenor, Loan, Recurring, RecurUnit } from '../types.ts'
+import type { Account, AppData, Category, EuriborTenor, Loan, PortfolioPoint, Recurring, RecurUnit } from '../types.ts'
 
 const expense = (id: string, name: string, emoji: string, color: string): Category => ({ id, name, emoji, color, kind: 'expense' })
 
@@ -33,6 +33,7 @@ export function defaultData(): AppData {
     recurring: [],
     goals: [],
     loans: [],
+    portfolio: [],
   }
 }
 
@@ -62,7 +63,20 @@ export function normalize(input: Partial<AppData> | null | undefined): AppData {
     recurring: (Array.isArray(input.recurring) ? input.recurring : []).map((r) => normalizeRecurring(r)),
     goals: (Array.isArray(input.goals) ? input.goals : []).map((g) => ({ ...g, saved: num(g.saved), target: num(g.target) })),
     loans,
+    portfolio: normalizePortfolio(input.portfolio),
   }
+}
+
+function normalizePortfolio(value: unknown): PortfolioPoint[] {
+  if (!Array.isArray(value)) return []
+  const byDate = new Map<string, number>()
+  for (const point of value) {
+    if (!point || typeof point !== 'object') continue
+    const date = (point as PortfolioPoint).date
+    if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue
+    byDate.set(date, num((point as PortfolioPoint).total))
+  }
+  return [...byDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, total]) => ({ date, total }))
 }
 
 const UNITS: RecurUnit[] = ['day', 'week', 'month', 'year']

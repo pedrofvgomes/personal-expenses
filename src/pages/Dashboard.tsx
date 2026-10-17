@@ -1,21 +1,78 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 import { useShell } from '../components/Layout.tsx'
 import { Empty, Meter, MonthSwitch, PageHeader } from '../components/ui.tsx'
-import { formatDate, formatMonthName, thisMonth } from '../lib/dates.ts'
-import { formatEUR } from '../lib/money.ts'
+import { formatDate, formatMonthName, thisMonth, todayISO } from '../lib/dates.ts'
+import { formatEUR, formatNumber, parseAmount, round2 } from '../lib/money.ts'
 import { nextInstalment } from '../lib/loan.ts'
-import { accountBalance, categorySpent, dueDates, materializeRecurring, monthCashflow, monthlyTrend, nextOccurrence, scheduleLabel, spentByCategory } from '../lib/selectors.ts'
+import {
+  accountBalance,
+  categorySpent,
+  dailyCumulative,
+  dueDates,
+  materializeRecurring,
+  monthCashflow,
+  monthlyTrend,
+  netWorthAt,
+  netWorthTrend,
+  nextOccurrence,
+  recordPortfolio,
+  risingCategories,
+  savingsStats,
+  scheduleLabel,
+  spendingCompare,
+  spentByCategory,
+  topExpenses,
+  upcoming,
+} from '../lib/selectors.ts'
 import { useStore } from '../store.tsx'
 
 const tip = { background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, color: 'var(--ink)' }
+
+function asOf(month: string): string {
+  const today = todayISO()
+  if (month >= today.slice(0, 7)) return today
+  const [y, m] = month.split('-').map(Number)
+  return `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
+}
+
+function changeText(current: number, base: number): string {
+  const diff = round2(current - base)
+  const sign = diff > 0 ? '+' : ''
+  if (base === 0) return `${sign}${formatEUR(diff)}`
+  const pct = Math.round((diff / base) * 100)
+  return `${sign}${formatEUR(diff)} (${pct > 0 ? '+' : ''}${pct}%)`
+}
+
+function rateText(rate: number | null): string {
+  if (rate === null) return '—'
+  return `${Math.round(rate * 100)}%`
+}
 
 export default function Dashboard() {
   const { data, mutate } = useStore()
   const { openTx } = useShell()
   const [month, setMonth] = useState(thisMonth())
+  const latest = data.portfolio.at(-1)
+  const savedPortfolio = latest ? formatNumber(latest.total) : ''
+  const [draft, setDraft] = useState(savedPortfolio)
+  const [savedSeen, setSavedSeen] = useState(savedPortfolio)
+  if (savedSeen !== savedPortfolio) {
+    setSavedSeen(savedPortfolio)
+    setDraft(savedPortfolio)
+  }
+  const [portfolioError, setPortfolioError] = useState('')
   const flow = monthCashflow(data, month)
+  const worth = netWorthAt(data, asOf(month))
+  const worthTrend = netWorthTrend(data, month > thisMonth() ? thisMonth() : month)
+  const compare = spendingCompare(data, month)
+  const savings = savingsStats(data, month)
+  const aheadAll = upcoming(data)
+  const ahead = aheadAll.slice(0, 8)
+  const biggest = topExpenses(data, month)
+  const rising = risingCategories(data, month)
+  const daily = dailyCumulative(data, month)
   const slices = spentByCategory(data, month).map((s) => ({ id: s.category.id, name: s.category.name, emoji: s.category.emoji, color: s.category.color, value: s.value }))
   const trend = monthlyTrend(data, month)
   const budgets = data.budgets
@@ -38,10 +95,68 @@ export default function Dashboard() {
     })
   }
 
+  function savePortfolio() {
+    const value = parseAmount(draft || '0')
+    if (value === null) {
+      setPortfolioError('Indica um valor em euros.')
+      return
+    }
+    setPortfolioError('')
+    mutate((d) => {
+      d.portfolio = recordPortfolio(d.portfolio, todayISO(), value)
+    })
+  }
+
   return (
     <div>
       <PageHeader title="Painel" sub="O mês, visto de cima." action={<MonthSwitch value={month} onChange={setMonth} />} />
-      <section className="rounded-3xl bg-accent p-5 text-accent-ink">
+
+      <section className="card p-5">
+        <p className="text-sm text-muted">Património líquido · {formatDate(asOf(month))}</p>
+        <p className="amount mt-1 font-serif text-4xl">{formatEUR(worth.total)}</p>
+        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
+          <div>
+            <p className="text-muted">Contas</p>
+            <p className="amount">{formatEUR(worth.accounts)}</p>
+          </div>
+          <div>
+            <p className="text-muted">Investimentos</p>
+            <p className="amount">{formatEUR(worth.invested)}</p>
+          </div>
+          <div>
+            <p className="text-muted">Capital próprio da casa</p>
+            <p className="amount">{formatEUR(worth.equity)}</p>
+          </div>
+        </div>
+        <form
+          className="mt-4 flex flex-wrap items-end gap-2"
+          onSubmit={(event) => {
+            event.preventDefault()
+            savePortfolio()
+          }}
+        >
+          <label className="min-w-40 flex-1">
+            <span className="label">Valor do portefólio</span>
+            <input className="field" inputMode="decimal" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="0,00" />
+          </label>
+          <button className="btn btn-primary" type="submit">Guardar</button>
+        </form>
+        {portfolioError && <p className="mt-2 text-sm text-bad" role="alert">{portfolioError}</p>}
+        {worthTrend.some((row) => row.total !== 0) && (
+          <div className="mt-4 h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={worthTrend}>
+                <CartesianGrid stroke="var(--line)" vertical={false} />
+                <XAxis dataKey="label" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(value) => formatEUR(Number(value ?? 0))} contentStyle={tip} />
+                <Line type="monotone" dataKey="total" name="Património" stroke="var(--accent)" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </section>
+
+      <section className="mt-4 rounded-3xl bg-accent p-5 text-accent-ink">
         <p className="text-sm opacity-80">Balanço de {formatMonthName(month)}</p>
         <p className="amount mt-1 font-serif text-4xl">{formatEUR(flow.balance)}</p>
         <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
@@ -55,6 +170,105 @@ export default function Dashboard() {
           </div>
         </div>
       </section>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <section className="card p-4">
+          <h2 className="font-medium">Comparação</h2>
+          <p className={`amount mt-2 text-2xl ${compare.expense > compare.previous ? 'text-bad' : 'text-good'}`}>{changeText(compare.expense, compare.previous)}</p>
+          <p className="text-sm text-muted">em relação ao mês anterior</p>
+          <p className="mt-1 text-sm text-muted">Mês anterior {formatEUR(compare.previous)} · média de 12 meses {formatEUR(compare.average)} ({changeText(compare.expense, compare.average)})</p>
+          {compare.categories.length > 0 && (
+            <ul className="mt-3 divide-y divide-line">
+              {compare.categories.slice(0, 5).map((row) => (
+                <li key={row.category.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="min-w-0 truncate">{row.category.emoji} {row.category.name}</span>
+                  <span className="shrink-0 text-muted">{formatEUR(row.spent)} · {changeText(row.spent, row.previous)}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="card p-4">
+          <h2 className="font-medium">Taxa de poupança</h2>
+          <p className="amount mt-2 font-serif text-4xl">{rateText(savings.rate)}</p>
+          <p className="mt-2 text-sm text-muted">Média de 12 meses {rateText(savings.averageRate)}</p>
+          <p className="mt-1 text-sm text-muted">Gasto médio mensal {formatEUR(savings.averageSpend)}</p>
+        </section>
+      </div>
+
+      <section className="card mt-4 p-4">
+        <h2 className="font-medium">Gasto diário</h2>
+        {daily.every((row) => row.current === 0 && row.previous === 0) ? (
+          <p className="mt-6 text-sm text-muted">Sem despesas neste mês nem no anterior.</p>
+        ) : (
+          <div className="mt-3 h-56">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={daily}>
+                <CartesianGrid stroke="var(--line)" vertical={false} />
+                <XAxis dataKey="day" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
+                <Tooltip formatter={(value, name) => [formatEUR(Number(value ?? 0)), name === 'current' ? 'Este mês' : 'Mês anterior']} contentStyle={tip} />
+                <Line type="monotone" dataKey="previous" name="previous" stroke="var(--muted)" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="current" name="current" stroke="var(--bad)" strokeWidth={2} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </section>
+
+      <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <section className="card p-4">
+          <h2 className="font-medium">Próximos 30 dias</h2>
+          {ahead.length === 0 ? (
+            <p className="mt-4 text-sm text-muted">Nada previsto. <Link to="/recorrentes" className="text-accent">Recorrentes</Link></p>
+          ) : (
+            <ul className="mt-3 divide-y divide-line">
+              {ahead.map((item) => (
+                <li key={`${item.date}-${item.label}`} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span className="min-w-0 truncate">{formatDate(item.date)} · {item.label}</span>
+                  <span className="shrink-0 text-right">
+                    <span className={item.kind === 'income' ? 'text-good' : ''}>{item.kind === 'income' ? '+' : '−'}{formatEUR(item.amount)}</span>
+                    <span className="mt-0.5 block text-xs text-muted">{formatEUR(item.balanceAfter)}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+          {aheadAll.length > ahead.length && <p className="mt-2 text-xs text-muted">Mais {aheadAll.length - ahead.length}.</p>}
+        </section>
+
+        <section className="card p-4">
+          <h2 className="font-medium">Maiores despesas</h2>
+          {biggest.length === 0 ? (
+            <p className="mt-4 text-sm text-muted">Sem despesas neste mês.</p>
+          ) : (
+            <ul className="mt-3 divide-y divide-line">
+              {biggest.map((tx) => {
+                const category = data.categories.find((item) => item.id === tx.categoryId)
+                return (
+                  <li key={tx.id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                    <span className="min-w-0 truncate">{category?.emoji} {tx.note || category?.name} · {formatDate(tx.date)}</span>
+                    <span className="amount shrink-0">{formatEUR(tx.amount)}</span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
+          {rising.length > 0 && (
+            <div className="mt-4">
+              <h3 className="text-sm font-medium">A subir</h3>
+              <ul className="mt-2 grid gap-1">
+                {rising.map((row) => (
+                  <li key={row.category.id} className="flex justify-between text-sm text-muted">
+                    <span>{row.category.emoji} {row.category.name}</span>
+                    <span>{changeText(row.spent, row.average)} face à média</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </section>
+      </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2">
         <section className="card p-4">
