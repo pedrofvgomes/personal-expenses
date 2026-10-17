@@ -18,9 +18,6 @@ function loan(partial: Partial<Loan> & Pick<Loan, 'principal' | 'termMonths' | '
     euriborTenor: 12,
     initialEuribor: 0,
     fixedPeriodMonths: 0,
-    lifeInsurance: 0,
-    lifeRate: 0,
-    homeInsurance: 0,
     graceMonths: 0,
     revisions: [],
     drawdowns: [],
@@ -97,27 +94,10 @@ describe('french schedule', () => {
     expect(annualRateAt(item, '2026-01-10', 0)).toBe(0)
   })
 
-  it('adds insurance on top of the instalment', () => {
-    const rows = schedule(loan({ principal: 1000, termMonths: 2, rateKind: 'fixed', annualRate: 0, lifeInsurance: 10, homeInsurance: 5 }))
-    expect(rows[0].insurance).toBe(15)
-    expect(rows[0].total).toBe(round2(rows[0].instalment + 15))
-  })
-
-  it('reduces life insurance as the outstanding capital falls', () => {
-    const rows = schedule(loan({
-      principal: 115_000,
-      termMonths: 480,
-      rateKind: 'fixed',
-      annualRate: 3.9,
-      homeInsurance: 16.95,
-      lifeRate: 0.12,
-    }))
-    expect(rows[0].interest).toBe(373.75)
-    expect(rows[0].insurance).toBe(28.45)
-    expect(rows[0].total).toBe(round2(rows[0].instalment + 28.45))
-    expect(rows[1].insurance).toBe(28.44)
-    expect(rows[2].insurance).toBe(28.43)
-    expect(rows[3].insurance).toBe(28.42)
+  it('keeps the total equal to capital plus interest', () => {
+    const rows = schedule(loan({ principal: 1000, termMonths: 2, rateKind: 'fixed', annualRate: 0 }))
+    expect(rows[0].total).toBe(rows[0].instalment)
+    expect(rows[0].total).toBe(round2(rows[0].capital + rows[0].interest))
   })
 })
 

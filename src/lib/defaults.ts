@@ -94,7 +94,7 @@ function normalizeRecurring(raw: Recurring & { day?: number; lastGenerated?: str
 function normalizeLoan(loan: Loan): Loan {
   const tenor = loan.euriborTenor
   const euriborTenor: EuriborTenor = tenor === 3 || tenor === 6 || tenor === 12 ? tenor : 12
-  return {
+  const next = {
     ...loan,
     principal: num(loan.principal),
     downPayment: num(loan.downPayment),
@@ -104,15 +104,17 @@ function normalizeLoan(loan: Loan): Loan {
     spread: num(loan.spread),
     initialEuribor: num(loan.initialEuribor),
     fixedPeriodMonths: num(loan.fixedPeriodMonths),
-    lifeInsurance: num(loan.lifeInsurance),
-    lifeRate: num(loan.lifeRate),
-    homeInsurance: num(loan.homeInsurance),
     graceMonths: num(loan.graceMonths),
     euriborTenor,
     revisions: loan.revisions ?? [],
     drawdowns: loan.drawdowns ?? [],
     payments: loan.payments ?? [],
   }
+  const stored = next as Loan & { lifeInsurance?: number; lifeRate?: number; homeInsurance?: number }
+  delete stored.lifeInsurance
+  delete stored.lifeRate
+  delete stored.homeInsurance
+  return next
 }
 
 export function isAppData(value: unknown): value is AppData {

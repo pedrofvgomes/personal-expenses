@@ -99,9 +99,6 @@ export interface Loan {
   euriborTenor: EuriborTenor
   initialEuribor: number
   fixedPeriodMonths: number
-  lifeInsurance: number
-  lifeRate: number
-  homeInsurance: number
   graceMonths: number
   revisions: RateRevision[]
   drawdowns: Drawdown[]

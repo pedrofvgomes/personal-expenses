@@ -9,7 +9,6 @@ export interface Instalment {
   interest: number
   capital: number
   instalment: number
-  insurance: number
   total: number
   balance: number
   phase: 'grace' | 'amort'
@@ -97,8 +96,6 @@ export function buildSchedule(loan: Loan, extra?: EarlyRepaymentInput): Schedule
   let appliedBalanceBefore = 0
   let extraDone = false
   let deferTerm = false
-  const fixedInsurance = round2((loan.lifeInsurance || 0) + (loan.homeInsurance || 0))
-  const lifeRate = Math.max(0, loan.lifeRate || 0) / 100 / 12
   const drawdowns = [...(loan.drawdowns ?? [])].sort((a, b) => a.date.localeCompare(b.date))
 
   const futureDraw = (date: string) => loan.kind === 'obras' && drawdowns.some((d) => d.date > date)
@@ -147,7 +144,6 @@ export function buildSchedule(loan: Loan, extra?: EarlyRepaymentInput): Schedule
 
     const r = Math.max(0, annual) / 100 / 12
     const interest = round2(balance * r)
-    const insurance = round2(fixedInsurance + balance * lifeRate)
     let capital = 0
     let instalment = interest
     if (!inGrace) {
@@ -166,8 +162,7 @@ export function buildSchedule(loan: Loan, extra?: EarlyRepaymentInput): Schedule
       interest,
       capital,
       instalment,
-      insurance,
-      total: round2(instalment + insurance),
+      total: instalment,
       balance,
       phase: inGrace ? 'grace' : 'amort',
     })

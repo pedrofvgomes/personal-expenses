@@ -193,19 +193,17 @@ function LoanView({
           <button type="button" className="btn" onClick={() => setFull(!full)}>{full ? 'Desde o mês passado' : 'Mapa completo'}</button>
         </div>
         <div className="mt-3 max-h-[32rem] overflow-auto">
-          <div className="hidden grid-cols-8 gap-2 px-1 pb-2 text-xs text-muted md:grid">
-            <span>#</span><span>Data</span><span>Juros</span><span>Capital</span><span>Seguros</span><span>Total</span><span>Dívida</span><span />
+          <div className="hidden grid-cols-7 gap-2 px-1 pb-2 text-xs text-muted md:grid">
+            <span>#</span><span>Data</span><span>Juros</span><span>Capital</span><span>Total</span><span>Dívida</span><span />
           </div>
           {visible.map((row) => {
             const paid = loan.payments.some((p) => p.instalmentIndex === row.index)
             return (
-              <div key={row.index} className="grid grid-cols-2 gap-1 border-t border-line py-3 text-sm md:grid-cols-8 md:items-center">
+              <div key={row.index} className="grid grid-cols-2 gap-1 border-t border-line py-3 text-sm md:grid-cols-7 md:items-center">
                 <span className="text-muted">{row.index}{row.phase === 'grace' ? ' · carência' : ''}</span>
                 <span>{formatDate(row.date)}</span>
                 <span className="hidden md:block">{formatEUR(row.interest)}</span>
                 <span className="hidden md:block">{formatEUR(row.capital)}</span>
-                <span className="hidden md:block">{formatEUR(row.insurance)}</span>
-                <span className="col-span-2 text-muted md:hidden">Seguros {formatEUR(row.insurance)}</span>
                 <span className="amount font-medium">{formatEUR(row.total)}</span>
                 <span className="amount text-muted">{formatEUR(row.balance)}</span>
                 <span className="col-span-2 md:col-span-1 md:text-right">
@@ -383,7 +381,7 @@ function PayModal({ loan, row, onClose }: { loan: Loan; row: Instalment; onClose
 
   return (
     <Modal title={`Prestação ${row.index}`} onClose={onClose}>
-      <p className="text-sm text-muted">{formatDate(row.date)} · {formatEUR(row.total)} incluindo seguros.</p>
+      <p className="text-sm text-muted">{formatDate(row.date)} · {formatEUR(row.total)}</p>
       <div className="mt-4 grid gap-3">
         <Field label="Conta do débito">
           <select className="field" value={accountId} onChange={(e) => setAccountId(e.target.value)}>
