@@ -3,8 +3,8 @@ import { Link } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 import { useShell } from '../components/Layout.tsx'
 import { Empty, Meter, MonthSwitch, PageHeader } from '../components/ui.tsx'
-import { formatDate, formatMonthName, thisMonth, todayISO } from '../lib/dates.ts'
-import { formatEUR, formatNumber, parseAmount, round2 } from '../lib/money.ts'
+import { formatDate, formatMonthName, thisMonth } from '../lib/dates.ts'
+import { formatEUR, round2 } from '../lib/money.ts'
 import { nextInstalment } from '../lib/loan.ts'
 import {
   accountBalance,
@@ -14,10 +14,7 @@ import {
   materializeRecurring,
   monthCashflow,
   monthlyTrend,
-  netWorthAt,
-  netWorthTrend,
   nextOccurrence,
-  recordPortfolio,
   risingCategories,
   savingsStats,
   scheduleLabel,
@@ -29,13 +26,6 @@ import {
 import { useStore } from '../store.tsx'
 
 const tip = { background: 'var(--card)', border: '1px solid var(--line)', borderRadius: 12, color: 'var(--ink)' }
-
-function asOf(month: string): string {
-  const today = todayISO()
-  if (month >= today.slice(0, 7)) return today
-  const [y, m] = month.split('-').map(Number)
-  return `${month}-${String(new Date(y, m, 0).getDate()).padStart(2, '0')}`
-}
 
 function changeText(current: number, base: number): string {
   const diff = round2(current - base)
@@ -54,18 +44,7 @@ export default function Dashboard() {
   const { data, mutate } = useStore()
   const { openTx } = useShell()
   const [month, setMonth] = useState(thisMonth())
-  const latest = data.portfolio.at(-1)
-  const savedPortfolio = latest ? formatNumber(latest.total) : ''
-  const [draft, setDraft] = useState(savedPortfolio)
-  const [savedSeen, setSavedSeen] = useState(savedPortfolio)
-  if (savedSeen !== savedPortfolio) {
-    setSavedSeen(savedPortfolio)
-    setDraft(savedPortfolio)
-  }
-  const [portfolioError, setPortfolioError] = useState('')
   const flow = monthCashflow(data, month)
-  const worth = netWorthAt(data, asOf(month))
-  const worthTrend = netWorthTrend(data, month > thisMonth() ? thisMonth() : month)
   const compare = spendingCompare(data, month)
   const savings = savingsStats(data, month)
   const aheadAll = upcoming(data)
@@ -95,68 +74,11 @@ export default function Dashboard() {
     })
   }
 
-  function savePortfolio() {
-    const value = parseAmount(draft || '0')
-    if (value === null) {
-      setPortfolioError('Indica um valor em euros.')
-      return
-    }
-    setPortfolioError('')
-    mutate((d) => {
-      d.portfolio = recordPortfolio(d.portfolio, todayISO(), value)
-    })
-  }
-
   return (
     <div>
       <PageHeader title="Painel" sub="O mês, visto de cima." action={<MonthSwitch value={month} onChange={setMonth} />} />
 
-      <section className="card p-5">
-        <p className="text-sm text-muted">Património líquido · {formatDate(asOf(month))}</p>
-        <p className="amount mt-1 font-serif text-4xl">{formatEUR(worth.total)}</p>
-        <div className="mt-4 grid gap-3 text-sm sm:grid-cols-3">
-          <div>
-            <p className="text-muted">Contas</p>
-            <p className="amount">{formatEUR(worth.accounts)}</p>
-          </div>
-          <div>
-            <p className="text-muted">Investimentos</p>
-            <p className="amount">{formatEUR(worth.invested)}</p>
-          </div>
-          <div>
-            <p className="text-muted">Capital próprio da casa</p>
-            <p className="amount">{formatEUR(worth.equity)}</p>
-          </div>
-        </div>
-        <form
-          className="mt-4 flex flex-wrap items-end gap-2"
-          onSubmit={(event) => {
-            event.preventDefault()
-            savePortfolio()
-          }}
-        >
-          <label className="min-w-40 flex-1">
-            <span className="label">Valor do portefólio</span>
-            <input className="field" inputMode="decimal" value={draft} onChange={(e) => setDraft(e.target.value)} placeholder="0,00" />
-          </label>
-          <button className="btn btn-primary" type="submit">Guardar</button>
-        </form>
-        {portfolioError && <p className="mt-2 text-sm text-bad" role="alert">{portfolioError}</p>}
-        {worthTrend.some((row) => row.total !== 0) && (
-          <div className="mt-4 h-48">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={worthTrend}>
-                <CartesianGrid stroke="var(--line)" vertical={false} />
-                <XAxis dataKey="label" tick={{ fill: 'var(--muted)', fontSize: 12 }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(value) => formatEUR(Number(value ?? 0))} contentStyle={tip} />
-                <Line type="monotone" dataKey="total" name="Património" stroke="var(--accent)" strokeWidth={2} dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-      </section>
-
-      <section className="mt-4 rounded-3xl bg-accent p-5 text-accent-ink">
+      <section className="rounded-3xl bg-accent p-5 text-accent-ink">
         <p className="text-sm opacity-80">Balanço de {formatMonthName(month)}</p>
         <p className="amount mt-1 font-serif text-4xl">{formatEUR(flow.balance)}</p>
         <div className="mt-5 grid grid-cols-2 gap-3 text-sm">

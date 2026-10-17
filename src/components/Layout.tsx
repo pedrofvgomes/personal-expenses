@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { NavLink, Outlet, useOutletContext } from 'react-router-dom'
-import { ArrowLeftRight, ChartPie, Landmark, LayoutDashboard, Moon, PiggyBank, Plus, Repeat, Settings, Sun, Wallet } from 'lucide-react'
+import { ArrowLeftRight, ChartPie, Landmark, LayoutDashboard, Moon, PiggyBank, Plus, Repeat, Scale, Settings, Sun, Wallet } from 'lucide-react'
 import { Modal } from './ui.tsx'
 import { TxForm } from './TxForm.tsx'
 import Recovery from '../pages/Recovery.tsx'
@@ -20,6 +20,7 @@ const more = [
   { to: '/orcamentos', label: 'Orçamentos', icon: ChartPie },
   { to: '/recorrentes', label: 'Recorrentes', icon: Repeat },
   { to: '/contas', label: 'Contas', icon: Wallet },
+  { to: '/patrimonio', label: 'Património', icon: Scale },
   { to: '/poupanca', label: 'Poupança', icon: PiggyBank },
   { to: '/definicoes', label: 'Definições', icon: Settings },
 ]
@@ -29,6 +30,7 @@ const all = [
   { to: '/orcamentos', label: 'Orçamentos', icon: ChartPie, end: false },
   { to: '/recorrentes', label: 'Recorrentes', icon: Repeat, end: false },
   { to: '/contas', label: 'Contas', icon: Wallet, end: false },
+  { to: '/patrimonio', label: 'Património', icon: Scale, end: false },
   { to: '/poupanca', label: 'Poupança', icon: PiggyBank, end: false },
   primary[2],
   { to: '/definicoes', label: 'Definições', icon: Settings, end: false },

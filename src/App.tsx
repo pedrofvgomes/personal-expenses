@@ -12,6 +12,7 @@ import Login from './pages/Login.tsx'
 import Recurring from './pages/Recurring.tsx'
 import Settings from './pages/Settings.tsx'
 import Transactions from './pages/Transactions.tsx'
+import Wealth from './pages/Wealth.tsx'
 import { StoreProvider } from './store.tsx'
 import { ThemeProvider } from './theme.tsx'
 
@@ -54,6 +55,7 @@ function Gate() {
             <Route path="orcamentos" element={<Budgets />} />
             <Route path="recorrentes" element={<Recurring />} />
             <Route path="contas" element={<Accounts />} />
+            <Route path="patrimonio" element={<Wealth />} />
             <Route path="poupanca" element={<Goals />} />
             <Route path="credito" element={<Loans />} />
             <Route path="credito/:id" element={<LoanDetail />} />
