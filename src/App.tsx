@@ -13,6 +13,7 @@ import Recurring from './pages/Recurring.tsx'
 import Settings from './pages/Settings.tsx'
 import Transactions from './pages/Transactions.tsx'
 import Wealth from './pages/Wealth.tsx'
+import { faviconSvg, paletteAccent } from './lib/palette.ts'
 import { StoreProvider, useStore } from './store.tsx'
 import { ThemeProvider } from './theme.tsx'
 
@@ -28,10 +29,19 @@ function UserPalette() {
   const { data } = useStore()
   useEffect(() => {
     const root = document.documentElement
+    const accent = paletteAccent(data.palette)
     if (data.palette === 'mar') delete root.dataset.palette
     else root.dataset.palette = data.palette
+    const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]')
+    const theme = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+    const previousIcon = icon?.href
+    const previousTheme = theme?.content
+    if (icon) icon.href = `data:image/svg+xml,${encodeURIComponent(faviconSvg(accent))}`
+    if (theme) theme.content = accent
     return () => {
       delete root.dataset.palette
+      if (icon && previousIcon) icon.href = previousIcon
+      if (theme && previousTheme) theme.content = previousTheme
     }
   }, [data.palette])
   return null

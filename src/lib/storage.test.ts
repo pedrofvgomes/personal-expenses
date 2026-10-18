@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { normalize } from './defaults.ts'
+import { faviconSvg, paletteAccent } from './palette.ts'
 import { bookFile, bookMoved } from './storage.ts'
 
 describe('second book', () => {
   it('keeps a session without a file on the original book', () => {
     expect(bookFile({})).toBe('data.enc')
     expect(bookFile({ file: 'data-2.enc' })).toBe('data-2.enc')
+  })
+
+  it('paints the house icon with the palette accent', () => {
+    expect(paletteAccent('vinho')).toBe('#8b2942')
+    expect(faviconSvg('#8b2942')).toContain('fill="#8b2942"')
+    expect(faviconSvg(paletteAccent('mar'))).toContain('fill="#0f6e6b"')
   })
 
   it('keeps an unknown palette off the book', () => {

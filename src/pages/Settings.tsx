@@ -5,16 +5,10 @@ import { downloadText } from '../lib/csv.ts'
 import { isAppData, normalize } from '../lib/defaults.ts'
 import { uid } from '../lib/id.ts'
 import { todayISO } from '../lib/dates.ts'
+import { PALETTES } from '../lib/palette.ts'
 import { useStore } from '../store.tsx'
 import { useTheme } from '../theme.tsx'
-import type { Category, CategoryKind, PaletteId } from '../types.ts'
-
-const PALETTES: { id: PaletteId; name: string; swatches: [string, string, string] }[] = [
-  { id: 'mar', name: 'Mar', swatches: ['#f3efe7', '#0f6e6b', '#221c17'] },
-  { id: 'vinho', name: 'Vinho', swatches: ['#f6efe9', '#8b2942', '#24161a'] },
-  { id: 'marinho', name: 'Marinho', swatches: ['#eef2f5', '#1e3a5f', '#15202b'] },
-  { id: 'ameixa', name: 'Ameixa', swatches: ['#f3eef4', '#6b3a6e', '#221824'] },
-]
+import type { Category, CategoryKind } from '../types.ts'
 
 export default function Settings() {
   const { data, mutate, replace, logout } = useStore()
