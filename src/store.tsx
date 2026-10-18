@@ -57,7 +57,7 @@ export function StoreProvider({ session, onLogout, children }: { session: Sessio
     const current = dataRef.current
     if (!current || (fatalRef.current && !force)) return
     try {
-      await writeCache(session.key, current)
+      await writeCache(session.key, current, session.file)
     } catch {
       // The encrypted cache is best-effort.
     }
@@ -69,10 +69,10 @@ export function StoreProvider({ session, onLogout, children }: { session: Sessio
     savingRef.current = true
     setSync('saving')
     try {
-      const result = await pushRemote(session, current, metaRef.current.remoteUpdatedAt, force)
+      const result = await pushRemote(session, current, metaRef.current.syncedDataUpdatedAt, force)
       if (result.ok) {
         metaRef.current = { remoteUpdatedAt: result.remoteUpdatedAt, syncedDataUpdatedAt: current.updatedAt }
-        writeMeta(metaRef.current)
+        writeMeta(metaRef.current, session.file)
         dirtyRef.current = false
         setSyncError(null)
         setSync('saved')
@@ -167,7 +167,7 @@ export function StoreProvider({ session, onLogout, children }: { session: Sessio
       dirtyRef.current = true
       window.clearTimeout(timerRef.current)
       timerRef.current = window.setTimeout(() => void persistRef.current(force), force ? 0 : 1200)
-      void writeCache(session.key, next).catch(() => {})
+      void writeCache(session.key, next, session.file).catch(() => {})
     }
     return {
       data: data ?? blank,
@@ -185,7 +185,7 @@ export function StoreProvider({ session, onLogout, children }: { session: Sessio
           dirtyRef.current = true
           window.clearTimeout(timerRef.current)
           timerRef.current = window.setTimeout(() => void persistRef.current(), 1200)
-          void writeCache(session.key, next).catch(() => {})
+          void writeCache(session.key, next, session.file).catch(() => {})
           return next
         })
       },
@@ -201,8 +201,8 @@ export function StoreProvider({ session, onLogout, children }: { session: Sessio
           setData(next)
           dirtyRef.current = false
           metaRef.current = { remoteUpdatedAt: remoteRef.current.updatedAt, syncedDataUpdatedAt: next.updatedAt }
-          writeMeta(metaRef.current)
-          void writeCache(session.key, next)
+          writeMeta(metaRef.current, session.file)
+          void writeCache(session.key, next, session.file)
           setSync('saved')
           return
         }

@@ -3,9 +3,18 @@ import { decryptJson, encrypt, isEnvelope } from './crypto.ts'
 import { defaultData, normalize } from './defaults.ts'
 import type { AppData } from '../types.ts'
 
-const CACHE = 'desp.cache'
-const META = 'desp.meta'
-const FILE = 'data.enc'
+export function bookFile(session: { file?: string }): 'data.enc' | 'data-2.enc' {
+  return session.file === 'data-2.enc' ? 'data-2.enc' : 'data.enc'
+}
+
+export function bookMoved(remoteBookUpdatedAt: string | null | undefined, syncedBookUpdatedAt: string | null): boolean {
+  return Boolean(syncedBookUpdatedAt && remoteBookUpdatedAt && remoteBookUpdatedAt !== syncedBookUpdatedAt)
+}
+
+function names(file?: string): { cache: string; meta: string } {
+  if (file === 'data-2.enc') return { cache: 'desp.cache.2', meta: 'desp.meta.2' }
+  return { cache: 'desp.cache', meta: 'desp.meta' }
+}
 
 export interface Meta {
   remoteUpdatedAt: string | null
@@ -37,9 +46,9 @@ function ghHeaders(token: string): HeadersInit {
   }
 }
 
-export function readMeta(): Meta {
+export function readMeta(file?: string): Meta {
   try {
-    const parsed = JSON.parse(localStorage.getItem(META) || 'null') as Partial<Meta> | null
+    const parsed = JSON.parse(localStorage.getItem(names(file).meta) || 'null') as Partial<Meta> | null
     if (!parsed || typeof parsed !== 'object') return { remoteUpdatedAt: null, syncedDataUpdatedAt: null }
     return {
       remoteUpdatedAt: typeof parsed.remoteUpdatedAt === 'string' ? parsed.remoteUpdatedAt : null,
@@ -50,12 +59,12 @@ export function readMeta(): Meta {
   }
 }
 
-export function writeMeta(meta: Meta) {
-  localStorage.setItem(META, JSON.stringify(meta))
+export function writeMeta(meta: Meta, file?: string) {
+  localStorage.setItem(names(file).meta, JSON.stringify(meta))
 }
 
-export async function readCache(key: CryptoKey): Promise<AppData | null> {
-  const raw = localStorage.getItem(CACHE)
+export async function readCache(key: CryptoKey, file?: string): Promise<AppData | null> {
+  const raw = localStorage.getItem(names(file).cache)
   if (!raw) return null
   try {
     const env = JSON.parse(raw) as unknown
@@ -66,9 +75,9 @@ export async function readCache(key: CryptoKey): Promise<AppData | null> {
   }
 }
 
-export async function writeCache(key: CryptoKey, data: AppData): Promise<void> {
+export async function writeCache(key: CryptoKey, data: AppData, file?: string): Promise<void> {
   const env = await encrypt(key, data)
-  localStorage.setItem(CACHE, JSON.stringify(env))
+  localStorage.setItem(names(file).cache, JSON.stringify(env))
 }
 
 async function fetchRemote(session: Session): Promise<Remote> {
@@ -86,7 +95,7 @@ async function fetchRemote(session: Session): Promise<Remote> {
     updated_at: string
     files?: Record<string, { content?: string; truncated?: boolean; raw_url?: string } | null>
   }
-  const file = body.files?.[FILE]
+  const file = body.files?.[bookFile(session)]
   let content = file?.content ?? ''
   if (file?.truncated && file.raw_url) {
     const raw = await fetch(file.raw_url, { headers: ghHeaders(session.token) })
@@ -118,16 +127,16 @@ export async function pullIfNewer(session: Session, meta: Meta, local: AppData):
   if (remote.data.updatedAt === local.updatedAt) {
     if (remote.updatedAt === meta.remoteUpdatedAt) return { action: 'none' }
     const next = { remoteUpdatedAt: remote.updatedAt, syncedDataUpdatedAt: local.updatedAt }
-    writeMeta(next)
+    writeMeta(next, session.file)
     return { action: 'take', data: remote.data, meta: next }
   }
   const localDirty = Boolean(meta.syncedDataUpdatedAt && local.updatedAt !== meta.syncedDataUpdatedAt)
-  const remoteMoved = Boolean(meta.remoteUpdatedAt && remote.updatedAt !== meta.remoteUpdatedAt)
+  const remoteMoved = bookMoved(remote.data.updatedAt, meta.syncedDataUpdatedAt)
   if (localDirty && remoteMoved) return { action: 'conflict', data: remote.data, remoteUpdatedAt: remote.updatedAt }
   if (!localDirty && remote.data.updatedAt > local.updatedAt) {
     const next = { remoteUpdatedAt: remote.updatedAt, syncedDataUpdatedAt: remote.data.updatedAt }
-    writeMeta(next)
-    await writeCache(session.key, remote.data)
+    writeMeta(next, session.file)
+    await writeCache(session.key, remote.data, session.file)
     return { action: 'take', data: remote.data, meta: next }
   }
   return { action: 'none' }
@@ -137,7 +146,7 @@ async function recoverPrevious(session: Session): Promise<AppData | null> {
   const prev = await previousKey()
   if (!prev) return null
   const asPrev = { ...session, key: prev }
-  const cached = await readCache(prev)
+  const cached = await readCache(prev, session.file)
   const remote = await fetchRemote(asPrev)
   if (remote.ok && remote.data && cached) return cached.updatedAt > remote.data.updatedAt ? cached : remote.data
   if (remote.ok && remote.data) return remote.data
@@ -145,8 +154,8 @@ async function recoverPrevious(session: Session): Promise<AppData | null> {
 }
 
 export async function loadState(session: Session): Promise<LoadResult> {
-  const meta = readMeta()
-  const cached = await readCache(session.key)
+  const meta = readMeta(session.file)
+  const cached = await readCache(session.key, session.file)
   const remote = await fetchRemote(session)
   const empty: LoadResult = {
     data: cached ?? defaultData(),
@@ -178,21 +187,21 @@ export async function loadState(session: Session): Promise<LoadResult> {
   if (!remote.data && cached) return { ...empty, data: cached, dirty: true, remoteUpdatedAt: remote.updatedAt }
   if (remote.data && !cached) {
     const next = { remoteUpdatedAt: remote.updatedAt, syncedDataUpdatedAt: remote.data.updatedAt }
-    writeMeta(next)
-    await writeCache(session.key, remote.data)
+    writeMeta(next, session.file)
+    await writeCache(session.key, remote.data, session.file)
     return { ...empty, data: remote.data, meta: next, remoteUpdatedAt: remote.updatedAt }
   }
   if (!remote.data || !cached) return empty
   const diverged = cached.updatedAt !== remote.data.updatedAt
-  const gistMoved = Boolean(meta.remoteUpdatedAt && meta.remoteUpdatedAt !== remote.updatedAt)
+  const remoteMoved = bookMoved(remote.data.updatedAt, meta.syncedDataUpdatedAt)
   const localMoved = Boolean(meta.syncedDataUpdatedAt && cached.updatedAt !== meta.syncedDataUpdatedAt)
-  if (diverged && (gistMoved && localMoved || (!meta.remoteUpdatedAt && cached.updatedAt > remote.data.updatedAt))) {
+  if (diverged && (remoteMoved && localMoved || (!meta.syncedDataUpdatedAt && cached.updatedAt > remote.data.updatedAt))) {
     return { ...empty, data: cached, conflict: true, remoteData: remote.data, remoteUpdatedAt: remote.updatedAt }
   }
   if (cached.updatedAt > remote.data.updatedAt) return { ...empty, data: cached, dirty: true, remoteUpdatedAt: remote.updatedAt }
   const next = { remoteUpdatedAt: remote.updatedAt, syncedDataUpdatedAt: remote.data.updatedAt }
-  writeMeta(next)
-  await writeCache(session.key, remote.data)
+  writeMeta(next, session.file)
+  await writeCache(session.key, remote.data, session.file)
   return { ...empty, data: remote.data, meta: next, remoteUpdatedAt: remote.updatedAt }
 }
 
@@ -201,14 +210,14 @@ export type PushResult =
   | { ok: false; conflict: true; remoteData: AppData | null; remoteUpdatedAt: string }
   | { ok: false; conflict: false; offline: boolean; error: string }
 
-export async function pushRemote(session: Session, data: AppData, seenRemoteUpdatedAt: string | null, force: boolean): Promise<PushResult> {
+export async function pushRemote(session: Session, data: AppData, seenBookUpdatedAt: string | null, force: boolean): Promise<PushResult> {
   const remote = await fetchRemote(session)
   if (!remote.ok) return { ok: false, conflict: false, offline: remote.offline, error: remote.error }
   if (remote.unreadable && !force) {
     return { ok: false, conflict: false, offline: false, error: 'Os dados na nuvem não abrem com esta palavra-passe.' }
   }
-  const moved = Boolean(seenRemoteUpdatedAt && remote.updatedAt !== seenRemoteUpdatedAt)
-  const bothDiffer = Boolean(!seenRemoteUpdatedAt && remote.data && remote.data.updatedAt !== data.updatedAt)
+  const moved = bookMoved(remote.data?.updatedAt, seenBookUpdatedAt)
+  const bothDiffer = Boolean(!seenBookUpdatedAt && remote.data && remote.data.updatedAt !== data.updatedAt)
   if (!force && (moved || bothDiffer)) {
     return { ok: false, conflict: true, remoteData: remote.data, remoteUpdatedAt: remote.updatedAt }
   }
@@ -218,7 +227,7 @@ export async function pushRemote(session: Session, data: AppData, seenRemoteUpda
     res = await fetch(`https://api.github.com/gists/${session.gistId}`, {
       method: 'PATCH',
       headers: { ...ghHeaders(session.token), 'Content-Type': 'application/json' },
-      body: JSON.stringify({ files: { [FILE]: { content: JSON.stringify(envelope) } } }),
+      body: JSON.stringify({ files: { [bookFile(session)]: { content: JSON.stringify(envelope) } } }),
     })
   } catch {
     return { ok: false, conflict: false, offline: true, error: 'Sem ligação. As alterações ficam neste dispositivo.' }

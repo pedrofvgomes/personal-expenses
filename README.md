@@ -1,6 +1,6 @@
 # Despesas
 
-Gestor de despesas pessoais, em português, para uma pessoa. Corre como site estático (GitHub Pages). Os dados ficam num gist privado, cifrados com a tua palavra-passe. Não há base de dados nem servidor.
+Gestor de despesas pessoais, em português. Corre como site estático (GitHub Pages). Os dados ficam num gist privado, cifrados com a tua palavra-passe. Não há base de dados nem servidor.
 
 Inclui movimentos, contas, categorias, orçamentos, recorrentes, metas de poupança e uma secção de crédito habitação e crédito obras (mapa francês, Euribor, carência, desembolsos e simulador de amortização antecipada).
 
@@ -20,7 +20,7 @@ O salt da cifra fica no gist, no ficheiro `crypto.json`. Publicar o site outra v
 cp .env.example .env.local
 ```
 
-Preenche `APP_PASSWORD`, `GIST_TOKEN` e `GIST_ID`.
+Preenche `APP_PASSWORD`, `GIST_TOKEN` e `GIST_ID`. `APP_PASSWORD_2` é opcional.
 
 ```bash
 npm install
@@ -34,6 +34,8 @@ No repositório: Settings → Secrets and variables → Actions, cria:
 - `APP_PASSWORD`
 - `GIST_TOKEN`
 - `GIST_ID`
+
+`APP_PASSWORD_2` é opcional. Com esse secret, a outra palavra-passe abre um livro separado no mesmo gist (`data-2.enc`). A tua palavra-passe e o `data.enc` ficam iguais. As duas palavras-passe têm de ser diferentes.
 
 Settings → Pages → Build and deployment → Source: **GitHub Actions**.
 

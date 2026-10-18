@@ -22,7 +22,7 @@ export default function Login({ onUnlock }: { onUnlock: (session: Session) => vo
     try {
       onUnlock(await unlock(value))
     } catch (err) {
-      setError(err instanceof Error && err.message === 'unconfigured' ? 'O cofre ainda não está configurado.' : 'Palavra-passe incorreta. Usa exatamente o valor de APP_PASSWORD.')
+      setError(err instanceof Error && err.message === 'unconfigured' ? 'O cofre ainda não está configurado.' : 'Palavra-passe incorreta.')
       setBusy(false)
     }
   }

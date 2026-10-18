@@ -1,5 +1,5 @@
 import { execFileSync } from 'node:child_process'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, rmSync, unlinkSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { buildVault, decryptJson, deriveKey, fromB64, isVault, toB64, VAULT_ITERATIONS } from '../src/lib/crypto.ts'
@@ -32,6 +32,7 @@ if (!password || !token || !gistId) {
     process.exit(1)
   }
   writeFileSync('public/vault.json', `${JSON.stringify({ v: 0 })}\n`)
+  if (existsSync('public/vault-2.json')) unlinkSync('public/vault-2.json')
   console.warn('Sem secrets: public/vault.json ficou por configurar.')
   process.exit(0)
 }
@@ -269,3 +270,14 @@ if (write) {
 const vault = await buildVault(password, { token, gistId }, chosen.salt, chosen.iter)
 writeFileSync('public/vault.json', `${JSON.stringify(vault)}\n`)
 console.log('Cofre escrito em public/vault.json')
+
+const secondPassword = process.env.APP_PASSWORD_2?.trim()
+const secondPath = 'public/vault-2.json'
+if (secondPassword && secondPassword !== password) {
+  const second = await buildVault(secondPassword, { token, gistId }, chosen.salt, chosen.iter)
+  writeFileSync(secondPath, `${JSON.stringify(second)}\n`)
+  console.log('Cofre escrito em public/vault-2.json')
+} else {
+  if (secondPassword) console.warn('APP_PASSWORD_2 é igual a APP_PASSWORD. O segundo cofre fica de fora.')
+  if (existsSync(secondPath)) unlinkSync(secondPath)
+}

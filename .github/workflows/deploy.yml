@@ -29,6 +29,7 @@ jobs:
       - run: npm run build
         env:
           APP_PASSWORD: ${{ secrets.APP_PASSWORD }}
+          APP_PASSWORD_2: ${{ secrets.APP_PASSWORD_2 }}
           GIST_TOKEN: ${{ secrets.GIST_TOKEN }}
           GIST_ID: ${{ secrets.GIST_ID }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
