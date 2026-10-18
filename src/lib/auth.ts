@@ -1,11 +1,14 @@
-import { decryptJson, deriveKey, fromB64, isVault, type VaultFile } from './crypto.ts'
+import { invitedFile, isInvitedFile } from './books.ts'
+import { decryptJson, deriveKey, fromB64, importAesKey, isVault, type VaultFile } from './crypto.ts'
 import { idbDel, idbGet, idbSet } from './idb.ts'
+import { loadRosterUsers } from './roster.ts'
 
 export interface Session {
   key: CryptoKey
   token: string
   gistId: string
-  file?: 'data-2.enc'
+  file?: string
+  dataKey?: string
 }
 
 const SESSION = 'session'
@@ -26,18 +29,61 @@ export async function loadVault(): Promise<VaultFile> {
   return (await loadNamed('vault.json')) ?? { v: 0 }
 }
 
-async function openVault(password: string, vault: Extract<VaultFile, { v: 1 }>, file?: 'data-2.enc'): Promise<Session> {
+async function openVault(password: string, vault: Extract<VaultFile, { v: 1 }>, file?: string): Promise<Session> {
   const key = await deriveKey(password, fromB64(vault.salt), vault.iter)
-  const secret = await decryptJson<{ token?: string; gistId?: string }>(key, vault)
+  const secret = await decryptJson<{ token?: string; gistId?: string; dataKey?: string }>(key, vault)
   if (!secret?.token || !secret.gistId) throw new Error('password')
+  if (file && isInvitedFile(file)) {
+    if (!secret.dataKey) throw new Error('password')
+    return { key: await importAesKey(secret.dataKey), token: secret.token, gistId: secret.gistId, file, dataKey: secret.dataKey }
+  }
   return file ? { key, token: secret.token, gistId: secret.gistId, file } : { key, token: secret.token, gistId: secret.gistId }
+}
+
+async function openExtra(password: string): Promise<Session | null> {
+  const second = await loadNamed('vault-2.json')
+  if (isVault(second)) {
+    try {
+      return await openVault(password, second, 'data-2.enc')
+    } catch {
+      // Not the second password.
+    }
+  }
+  for (const user of await loadRosterUsers()) {
+    try {
+      return await openVault(password, user.vault, invitedFile(user.id))
+    } catch {
+      // This vault belongs to someone else.
+    }
+  }
+  return null
+}
+
+async function openAny(password: string): Promise<Session | null> {
+  const vault = await loadVault()
+  if (isVault(vault)) {
+    try {
+      return await openVault(password, vault)
+    } catch {
+      // Not the main password.
+    }
+  }
+  return openExtra(password)
+}
+
+export async function matchingBook(password: string): Promise<string | null> {
+  const session = await openAny(password)
+  if (!session) return null
+  return session.file ?? 'data.enc'
 }
 
 function isSession(value: unknown): value is Session {
   if (!value || typeof value !== 'object') return false
   const session = value as Session
-  if (session.file !== undefined && session.file !== 'data-2.enc') return false
-  return Boolean(session.key) && typeof session.token === 'string' && session.token.length > 0 && typeof session.gistId === 'string' && session.gistId.length > 0
+  if (!session.key || typeof session.token !== 'string' || !session.token || typeof session.gistId !== 'string' || !session.gistId) return false
+  if (session.file === undefined) return session.dataKey === undefined
+  if (session.file === 'data-2.enc') return session.dataKey === undefined
+  return isInvitedFile(session.file) && typeof session.dataKey === 'string' && session.dataKey.length > 0
 }
 
 async function remember(session: Session) {
@@ -70,22 +116,7 @@ export async function unlock(password: string): Promise<Session> {
   const vault = await loadVault()
   if (!isVault(vault)) throw new Error('unconfigured')
   const prior = await idbGet<CryptoKey>(KEY).catch(() => null)
-  let session: Session | null = null
-  try {
-    session = await openVault(password, vault)
-  } catch {
-    session = null
-  }
-  if (!session) {
-    const second = await loadNamed('vault-2.json')
-    if (isVault(second)) {
-      try {
-        session = await openVault(password, second, 'data-2.enc')
-      } catch {
-        session = null
-      }
-    }
-  }
+  const session = await openAny(password)
   if (!session) throw new Error('password')
   if (prior) await stash(prior)
   await remember(session)
@@ -96,17 +127,19 @@ export async function resume(): Promise<Session | null> {
   try {
     const saved = await idbGet<Session>(SESSION)
     if (isSession(saved)) {
+      if (saved.file && isInvitedFile(saved.file)) return saved
       if (saved.file === 'data-2.enc') {
-        const second = await loadNamed('vault-2.json')
-        if (!isVault(second)) return null
+        const extra = await loadNamed('vault-2.json')
+        if (!isVault(extra)) return null
         try {
-          await decryptJson(saved.key, second)
+          await decryptJson(saved.key, extra)
           return saved
         } catch {
           await stash(saved.key)
           return null
         }
       }
+      if (saved.file) return null
       const vault = await loadVault()
       if (!isVault(vault)) return saved
       try {

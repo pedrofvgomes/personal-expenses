@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { FormEvent } from 'react'
 import { Download, Upload } from 'lucide-react'
 import { Field, PageHeader } from '../components/ui.tsx'
 import { downloadText } from '../lib/csv.ts'
@@ -11,7 +12,7 @@ import { useTheme } from '../theme.tsx'
 import type { Category, CategoryKind } from '../types.ts'
 
 export default function Settings() {
-  const { data, mutate, replace, logout } = useStore()
+  const { data, mutate, replace, logout, canInvite, canChangePassword, createUser, changePassword } = useStore()
   const { dark, toggle } = useTheme()
   const [notice, setNotice] = useState('')
   const [editing, setEditing] = useState<Category | null>(null)
@@ -67,6 +68,25 @@ export default function Settings() {
         </div>
       </section>
 
+      {canInvite && (
+        <PasswordForm
+          title="Novo utilizador"
+          copy="Só tu podes criar. Defines a palavra-passe inicial; a pessoa muda-a depois, em Definições. O livro dela é novo, por isso os dados que já existem ficam como estão. Depois da primeira pessoa, publica o site uma vez para ela entrar noutro dispositivo."
+          submitLabel="Criar utilizador"
+          doneText="Utilizador criado. Neste dispositivo já pode entrar. Noutro, só depois de publicares o site uma vez."
+          onSubmit={createUser}
+        />
+      )}
+      {canChangePassword && (
+        <PasswordForm
+          title="Palavra-passe"
+          copy="A nova palavra-passe passa a abrir o teu livro. Onde já entraste, a sessão continua até saíres."
+          submitLabel="Mudar palavra-passe"
+          doneText="Palavra-passe mudada."
+          onSubmit={changePassword}
+        />
+      )}
+
       <section className="card mt-4 p-4">
         <div className="flex items-center justify-between gap-3">
           <h2 className="font-medium">Categorias</h2>
@@ -105,6 +125,69 @@ export default function Settings() {
         <button type="button" className="btn mt-3" onClick={logout}>Sair</button>
       </section>
     </div>
+  )
+}
+
+function passwordMessage(err: unknown): string {
+  const code = err instanceof Error ? err.message : ''
+  if (code === 'taken') return 'Essa palavra-passe já abre outro livro. Escolhe outra.'
+  if (code === 'busy') return 'Espera que os dados fiquem guardados.'
+  if (code === 'password') return 'Escreve uma palavra-passe.'
+  return 'Não consegui guardar. Tenta outra vez.'
+}
+
+function PasswordForm({ title, copy, submitLabel, doneText, onSubmit }: {
+  title: string
+  copy: string
+  submitLabel: string
+  doneText: string
+  onSubmit: (password: string) => Promise<void>
+}) {
+  const [password, setPassword] = useState('')
+  const [again, setAgain] = useState('')
+  const [error, setError] = useState('')
+  const [done, setDone] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const typed = password.trim()
+    if (!typed || typed !== again.trim()) {
+      setDone('')
+      setError(typed ? 'As duas palavras-passe não coincidem.' : 'Escreve uma palavra-passe.')
+      return
+    }
+    setBusy(true)
+    setError('')
+    setDone('')
+    try {
+      await onSubmit(typed)
+      setPassword('')
+      setAgain('')
+      setDone(doneText)
+    } catch (err) {
+      setError(passwordMessage(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="card mt-4 p-4">
+      <h2 className="font-medium">{title}</h2>
+      <p className="mt-1 text-sm text-muted">{copy}</p>
+      <form className="mt-3 grid gap-3" onSubmit={(event) => void submit(event)}>
+        <Field label="Palavra-passe">
+          <input className="field" type="password" autoComplete="new-password" autoCapitalize="off" autoCorrect="off" spellCheck={false} value={password} onChange={(event) => setPassword(event.target.value)} />
+        </Field>
+        <Field label="Repetir">
+          <input className="field" type="password" autoComplete="new-password" autoCapitalize="off" autoCorrect="off" spellCheck={false} value={again} onChange={(event) => setAgain(event.target.value)} />
+        </Field>
+        {error && <p className="text-sm text-bad">{error}</p>}
+        {done && <p className="text-sm text-muted">{done}</p>}
+        <button className="btn btn-primary w-fit" type="submit" disabled={busy}>{busy ? 'A guardar…' : submitLabel}</button>
+      </form>
+    </section>
   )
 }
 

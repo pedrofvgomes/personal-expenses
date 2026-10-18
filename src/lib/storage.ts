@@ -1,11 +1,10 @@
 import { previousKey, type Session } from './auth.ts'
+import { bookFile, isInvitedFile } from './books.ts'
 import { decryptJson, encrypt, isEnvelope } from './crypto.ts'
 import { defaultData, normalize } from './defaults.ts'
 import type { AppData } from '../types.ts'
 
-export function bookFile(session: { file?: string }): 'data.enc' | 'data-2.enc' {
-  return session.file === 'data-2.enc' ? 'data-2.enc' : 'data.enc'
-}
+export { bookFile }
 
 export function bookMoved(remoteBookUpdatedAt: string | null | undefined, syncedBookUpdatedAt: string | null): boolean {
   return Boolean(syncedBookUpdatedAt && remoteBookUpdatedAt && remoteBookUpdatedAt !== syncedBookUpdatedAt)
@@ -13,6 +12,7 @@ export function bookMoved(remoteBookUpdatedAt: string | null | undefined, synced
 
 function names(file?: string): { cache: string; meta: string } {
   if (file === 'data-2.enc') return { cache: 'desp.cache.2', meta: 'desp.meta.2' }
+  if (file && isInvitedFile(file)) return { cache: `desp.cache.${file}`, meta: `desp.meta.${file}` }
   return { cache: 'desp.cache', meta: 'desp.meta' }
 }
 

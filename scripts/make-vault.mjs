@@ -281,3 +281,20 @@ if (secondPassword && secondPassword !== password) {
   if (secondPassword) console.warn('APP_PASSWORD_2 é igual a APP_PASSWORD. O segundo cofre fica de fora.')
   if (existsSync(secondPath)) unlinkSync(secondPath)
 }
+
+const rosterPath = 'public/roster.json'
+if (gist) {
+  let rosterId = ''
+  let read = false
+  try {
+    const parsed = JSON.parse((await fileText(gist.files?.['roster.json'])) || 'null')
+    read = true
+    if (parsed && typeof parsed.id === 'string' && /^[A-Za-z0-9]{8,64}$/.test(parsed.id)) rosterId = parsed.id
+  } catch {
+    read = false
+  }
+  if (read && rosterId) {
+    writeFileSync(rosterPath, `${JSON.stringify({ id: rosterId })}\n`)
+    console.log('Ponteiro dos outros utilizadores escrito em public/roster.json')
+  } else if (read && existsSync(rosterPath)) unlinkSync(rosterPath)
+}

@@ -37,6 +37,8 @@ No repositório: Settings → Secrets and variables → Actions, cria:
 
 `APP_PASSWORD_2` é opcional. Com esse secret, a outra palavra-passe abre um livro separado no mesmo gist (`data-2.enc`). A tua palavra-passe e o `data.enc` ficam iguais. As duas palavras-passe têm de ser diferentes.
 
+Mais pessoas: em Definições, só a palavra-passe principal tem o botão para criar um utilizador. Defines a palavra-passe inicial; essa pessoa muda-a depois, no mesmo ecrã. Cada uma fica com um livro novo. O `data.enc` e o `data-2.enc` não são reescritos. Depois da primeira pessoa, publica o site uma vez para ela entrar noutro dispositivo.
+
 Settings → Pages → Build and deployment → Source: **GitHub Actions**.
 
 Faz push para `main`. A Action publica o site e reutiliza a chave da publicação anterior. No telemóvel, no computador ou noutro browser, a mesma palavra-passe abre os mesmos dados.

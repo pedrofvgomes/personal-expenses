@@ -14,6 +14,7 @@ dist-ssr
 .env
 public/vault.json
 public/vault-2.json
+public/roster.json
 
 # Editor directories and files
 .vscode/*

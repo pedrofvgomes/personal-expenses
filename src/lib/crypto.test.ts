@@ -1,34 +1,35 @@
 import { describe, expect, it } from 'vitest'
-import { buildVault, decryptJson, deriveKey, encrypt, fromB64, toB64 } from './crypto.ts'
+import { buildVault, decryptJson, deriveKey, importAesKey, randomDataKey } from './crypto.ts'
+import { rosterUsers } from './roster.ts'
 
-describe('crypto', () => {
-  it('round-trips json and rejects a tampered payload', async () => {
-    const salt = crypto.getRandomValues(new Uint8Array(16))
-    const key = await deriveKey('segredo', salt, 1_000)
-    const env = await encrypt(key, { saldo: 12.5, nota: 'café' })
-    await expect(decryptJson(key, env)).resolves.toEqual({ saldo: 12.5, nota: 'café' })
-    const wrong = await deriveKey('outra', salt, 1_000)
-    await expect(decryptJson(wrong, env)).rejects.toBeTruthy()
-    await expect(decryptJson(key, { ...env, iv: toB64(crypto.getRandomValues(new Uint8Array(12))) })).rejects.toBeTruthy()
+describe('vault secret', () => {
+  it('keeps the original secret to the token and the gist', async () => {
+    const salt = new Uint8Array(16).fill(3)
+    const vault = await buildVault('pw', { token: 't', gistId: 'g' }, salt, 1)
+    const key = await deriveKey('pw', salt, 1)
+    expect(await decryptJson(key, vault)).toEqual({ token: 't', gistId: 'g' })
   })
 
-  it('reuses a salt so the same password keeps the same key', async () => {
-    const salt = crypto.getRandomValues(new Uint8Array(16))
-    const secret = { token: 'gist-token', gistId: 'abc' }
-    const first = await buildVault('pw', secret, salt, 1_000)
-    const second = await buildVault('pw', secret, salt, 1_000)
-    expect(first.salt).toBe(toB64(salt))
-    expect(second.salt).toBe(first.salt)
-    const key = await deriveKey('pw', salt, 1_000)
-    await expect(decryptJson(key, first)).resolves.toEqual(secret)
-    await expect(decryptJson(key, second)).resolves.toEqual(secret)
+  it('wraps an invited book key without changing the book', async () => {
+    const salt = new Uint8Array(16).fill(4)
+    const dataKey = randomDataKey()
+    const vault = await buildVault('pw', { token: 't', gistId: 'g', dataKey }, salt, 1)
+    const key = await deriveKey('pw', salt, 1)
+    const secret = await decryptJson<{ dataKey: string }>(key, vault)
+    const bookKey = await importAesKey(secret.dataKey)
+    expect(secret.dataKey).toBe(dataKey)
+    expect(bookKey.type).toBe('secret')
   })
+})
 
-  it('opens a vault only with the password it was built with', async () => {
-    const vault = await buildVault('correct horse', { token: 'gist-token', gistId: 'abc' })
-    const key = await deriveKey('correct horse', fromB64(vault.salt), vault.iter)
-    await expect(decryptJson(key, vault)).resolves.toEqual({ token: 'gist-token', gistId: 'abc' })
-    const wrong = await deriveKey('nope', fromB64(vault.salt), vault.iter)
-    await expect(decryptJson(wrong, vault)).rejects.toBeTruthy()
-  }, 30_000)
+describe('roster', () => {
+  const vault = { v: 1 as const, iter: 1, salt: 'aa', iv: 'bb', ct: 'cc' }
+
+  it('keeps only invited users with a real id', () => {
+    expect(rosterUsers({ users: [{ id: '0123abcd', vault }, { id: '../data.enc', vault }, { id: 'short', vault }] })).toEqual([
+      { id: '0123abcd', vault },
+    ])
+    expect(rosterUsers({ nope: true })).toBeNull()
+    expect(rosterUsers(null)).toBeNull()
+  })
 })

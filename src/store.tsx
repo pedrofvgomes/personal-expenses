@@ -1,7 +1,10 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { clearSession, type Session } from './lib/auth.ts'
+import { clearSession, matchingBook, type Session } from './lib/auth.ts'
+import { isInvitedFile } from './lib/books.ts'
+import { buildVault } from './lib/crypto.ts'
 import { normalize } from './lib/defaults.ts'
+import { createRosterUser, publishRosterVault } from './lib/roster.ts'
 import { loadState, pullIfNewer, pushRemote, writeCache, writeMeta, type Meta } from './lib/storage.ts'
 import type { AppData } from './types.ts'
 
@@ -19,6 +22,10 @@ type StoreValue = {
   keepLocal: () => void
   startOver: () => void
   logout: () => void
+  canInvite: boolean
+  canChangePassword: boolean
+  createUser: (password: string) => Promise<void>
+  changePassword: (password: string) => Promise<void>
 }
 
 const Ctx = createContext<StoreValue | null>(null)
@@ -222,6 +229,22 @@ export function StoreProvider({ session, onLogout, children }: { session: Sessio
       },
       logout() {
         void clearSession().finally(onLogout)
+      },
+      canInvite: !session.file,
+      canChangePassword: Boolean(session.file && session.dataKey && isInvitedFile(session.file)),
+      async createUser(password) {
+        if (session.file) throw new Error('owner')
+        if (dirtyRef.current || savingRef.current) await persistRef.current()
+        if (dirtyRef.current || savingRef.current) throw new Error('busy')
+        await createRosterUser(session, password)
+      },
+      async changePassword(password) {
+        if (!session.dataKey || !session.file || !isInvitedFile(session.file)) throw new Error('owner')
+        const typed = password.trim()
+        if (!typed) throw new Error('password')
+        if (await matchingBook(typed)) throw new Error('taken')
+        const vault = await buildVault(typed, { token: session.token, gistId: session.gistId, dataKey: session.dataKey })
+        await publishRosterVault(session, vault)
       },
     }
   }, [data, fatal, hadLocal, onLogout, session, sync, syncError])

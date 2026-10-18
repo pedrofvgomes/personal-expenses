@@ -7,6 +7,9 @@ describe('second book', () => {
   it('keeps a session without a file on the original book', () => {
     expect(bookFile({})).toBe('data.enc')
     expect(bookFile({ file: 'data-2.enc' })).toBe('data-2.enc')
+    expect(bookFile({ file: 'data-u0123abcd.enc' })).toBe('data-u0123abcd.enc')
+    expect(() => bookFile({ file: 'data-3.enc' })).toThrow('book')
+    expect(() => bookFile({ file: 'data.enc' })).toThrow('book')
   })
 
   it('paints the house icon with the palette accent', () => {

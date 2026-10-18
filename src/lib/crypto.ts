@@ -66,9 +66,19 @@ export async function decryptJson<T>(key: CryptoKey, payload: { iv: string; ct: 
   return JSON.parse(new TextDecoder().decode(pt)) as T
 }
 
+export function randomDataKey(): string {
+  return toB64(crypto.getRandomValues(new Uint8Array(32)))
+}
+
+export async function importAesKey(raw: string): Promise<CryptoKey> {
+  const bytes = fromB64(raw)
+  if (bytes.length !== 32) throw new Error('password')
+  return crypto.subtle.importKey('raw', toArrayBuffer(bytes), { name: 'AES-GCM' }, false, ['encrypt', 'decrypt'])
+}
+
 export async function buildVault(
   password: string,
-  secret: { token: string; gistId: string },
+  secret: { token: string; gistId: string; dataKey?: string },
   salt = crypto.getRandomValues(new Uint8Array(16)),
   iterations = VAULT_ITERATIONS,
 ): Promise<Extract<VaultFile, { v: 1 }>> {
