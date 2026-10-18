@@ -1,5 +1,5 @@
 import { dateInMonth, thisMonth } from './dates.ts'
-import type { Account, AppData, Category, EuriborTenor, Loan, PortfolioPoint, Recurring, RecurUnit } from '../types.ts'
+import type { Account, AppData, Category, EuriborTenor, Loan, PaletteId, PortfolioPoint, Recurring, RecurUnit } from '../types.ts'
 
 const expense = (id: string, name: string, emoji: string, color: string): Category => ({ id, name, emoji, color, kind: 'expense' })
 
@@ -34,6 +34,7 @@ export function defaultData(): AppData {
     goals: [],
     loans: [],
     portfolio: [],
+    palette: 'mar',
   }
 }
 
@@ -64,7 +65,14 @@ export function normalize(input: Partial<AppData> | null | undefined): AppData {
     goals: (Array.isArray(input.goals) ? input.goals : []).map((g) => ({ ...g, saved: num(g.saved), target: num(g.target) })),
     loans,
     portfolio: normalizePortfolio(input.portfolio),
+    palette: paletteId(input.palette),
   }
+}
+
+const PALETTES: PaletteId[] = ['mar', 'vinho', 'marinho', 'ameixa']
+
+function paletteId(value: unknown): PaletteId {
+  return PALETTES.includes(value as PaletteId) ? (value as PaletteId) : 'mar'
 }
 
 function normalizePortfolio(value: unknown): PortfolioPoint[] {

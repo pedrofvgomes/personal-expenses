@@ -7,10 +7,17 @@ import { uid } from '../lib/id.ts'
 import { todayISO } from '../lib/dates.ts'
 import { useStore } from '../store.tsx'
 import { useTheme } from '../theme.tsx'
-import type { Category, CategoryKind } from '../types.ts'
+import type { Category, CategoryKind, PaletteId } from '../types.ts'
+
+const PALETTES: { id: PaletteId; name: string; swatches: [string, string, string] }[] = [
+  { id: 'mar', name: 'Mar', swatches: ['#f3efe7', '#0f6e6b', '#221c17'] },
+  { id: 'vinho', name: 'Vinho', swatches: ['#f6efe9', '#8b2942', '#24161a'] },
+  { id: 'marinho', name: 'Marinho', swatches: ['#eef2f5', '#1e3a5f', '#15202b'] },
+  { id: 'ameixa', name: 'Ameixa', swatches: ['#f3eef4', '#6b3a6e', '#221824'] },
+]
 
 export default function Settings() {
-  const { data, replace, logout } = useStore()
+  const { data, mutate, replace, logout } = useStore()
   const { dark, toggle } = useTheme()
   const [notice, setNotice] = useState('')
   const [editing, setEditing] = useState<Category | null>(null)
@@ -36,6 +43,34 @@ export default function Settings() {
       <section className="card p-4">
         <h2 className="font-medium">Tema</h2>
         <button type="button" className="btn mt-3" onClick={toggle}>{dark ? 'Usar tema claro' : 'Usar tema escuro'}</button>
+        <h3 className="mt-5 text-sm font-medium">Paleta</h3>
+        <p className="mt-1 text-sm text-muted">Só neste livro. A outra palavra-passe não a vê.</p>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {PALETTES.map((palette) => {
+            const on = data.palette === palette.id
+            return (
+              <button
+                key={palette.id}
+                type="button"
+                aria-pressed={on}
+                className={`rounded-2xl border px-3 py-2 text-left text-sm ${on ? 'border-accent' : 'border-line'}`}
+                onClick={() => {
+                  if (on) return
+                  mutate((draft) => {
+                    draft.palette = palette.id
+                  })
+                }}
+              >
+                <span className="flex gap-1">
+                  {palette.swatches.map((color) => (
+                    <span key={color} className="h-4 w-4 rounded-full border border-line" style={{ background: color }} />
+                  ))}
+                </span>
+                <span className="mt-1 block">{palette.name}</span>
+              </button>
+            )
+          })}
+        </div>
       </section>
 
       <section className="card mt-4 p-4">

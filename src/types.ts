@@ -105,6 +105,8 @@ export interface Loan {
   payments: LoanPayment[]
 }
 
+export type PaletteId = 'mar' | 'vinho' | 'marinho' | 'ameixa'
+
 export interface PortfolioPoint {
   date: string
   total: number
@@ -121,4 +123,5 @@ export interface AppData {
   goals: Goal[]
   loans: Loan[]
   portfolio: PortfolioPoint[]
+  palette: PaletteId
 }

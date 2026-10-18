@@ -34,6 +34,7 @@ const blank: AppData = {
   goals: [],
   loans: [],
   portfolio: [],
+  palette: 'mar',
 }
 
 export function StoreProvider({ session, onLogout, children }: { session: Session; onLogout: () => void; children: ReactNode }) {

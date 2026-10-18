@@ -13,7 +13,7 @@ import Recurring from './pages/Recurring.tsx'
 import Settings from './pages/Settings.tsx'
 import Transactions from './pages/Transactions.tsx'
 import Wealth from './pages/Wealth.tsx'
-import { StoreProvider } from './store.tsx'
+import { StoreProvider, useStore } from './store.tsx'
 import { ThemeProvider } from './theme.tsx'
 
 export default function App() {
@@ -22,6 +22,19 @@ export default function App() {
       <Gate />
     </ThemeProvider>
   )
+}
+
+function UserPalette() {
+  const { data } = useStore()
+  useEffect(() => {
+    const root = document.documentElement
+    if (data.palette === 'mar') delete root.dataset.palette
+    else root.dataset.palette = data.palette
+    return () => {
+      delete root.dataset.palette
+    }
+  }, [data.palette])
+  return null
 }
 
 function Gate() {
@@ -47,6 +60,7 @@ function Gate() {
 
   return (
     <StoreProvider session={session} onLogout={() => { void clearSession().finally(logout) }}>
+      <UserPalette />
       <HashRouter>
         <Routes>
           <Route element={<Layout />}>

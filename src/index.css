@@ -45,6 +45,72 @@
   color-scheme: dark;
 }
 
+:root[data-palette='vinho'] {
+  --bg: #f6efe9;
+  --card: #fffaf7;
+  --ink: #24161a;
+  --muted: #7a5c64;
+  --line: #eadfd8;
+  --accent: #8b2942;
+  --accent-ink: #fff7f8;
+  --sidebar: #f0e4dc;
+}
+
+.dark[data-palette='vinho'] {
+  --bg: #140f11;
+  --card: #21181b;
+  --ink: #f6eeef;
+  --muted: #c4a8ae;
+  --line: #3a2c31;
+  --accent: #e7a3b3;
+  --accent-ink: #2a1218;
+  --sidebar: #1a1416;
+}
+
+:root[data-palette='marinho'] {
+  --bg: #eef2f5;
+  --card: #f9fbfc;
+  --ink: #15202b;
+  --muted: #5c6b78;
+  --line: #d5dee6;
+  --accent: #1e3a5f;
+  --accent-ink: #f4f8fb;
+  --sidebar: #e3eaf0;
+}
+
+.dark[data-palette='marinho'] {
+  --bg: #0e1216;
+  --card: #171d24;
+  --ink: #eef3f7;
+  --muted: #a8b6c2;
+  --line: #2a3440;
+  --accent: #9ec0de;
+  --accent-ink: #102033;
+  --sidebar: #12181e;
+}
+
+:root[data-palette='ameixa'] {
+  --bg: #f3eef4;
+  --card: #fcf9fc;
+  --ink: #221824;
+  --muted: #6f6174;
+  --line: #e4d8e6;
+  --accent: #6b3a6e;
+  --accent-ink: #fdf7fd;
+  --sidebar: #ebe3ed;
+}
+
+.dark[data-palette='ameixa'] {
+  --bg: #121014;
+  --card: #1c1820;
+  --ink: #f4eef6;
+  --muted: #bba8c0;
+  --line: #332a38;
+  --accent: #d4a8d8;
+  --accent-ink: #261428;
+  --sidebar: #18141c;
+}
+
 html {
   background: var(--bg);
 }
